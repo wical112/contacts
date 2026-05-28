@@ -656,7 +656,9 @@ function openMenu() {
       <button class="btn btn-ghost" data-act="export-json">📥 匯出全部 JSON</button>
       <button class="btn btn-ghost" data-act="export-vcf">📥 匯出全部 vCard (.vcf)</button>
       <button class="btn btn-ghost" data-act="signout">🚪 登出</button>
+      <button class="btn btn-ghost" data-act="debug">🐞 Debug claims</button>
     </div>
+    <pre id="debugOut" class="hidden text-[10px] mt-2 p-2 rounded bg-black/40 overflow-auto" style="white-space:pre-wrap;word-break:break-all"></pre>
     <div class="text-[11px] text-gray-600 mt-4">${S.contacts.length} 個聯絡人 · 私人 noindex.</div>
   </div>`;
   root.appendChild(shell);
@@ -670,6 +672,41 @@ function openMenu() {
     a.href = URL.createObjectURL(blob);
     a.download = `contacts-${new Date().toISOString().slice(0,10)}.json`;
     a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+  });
+  shell.querySelector('[data-act="debug"]').addEventListener("click", async () => {
+    const out = shell.querySelector('#debugOut');
+    out.classList.remove('hidden');
+    out.textContent = "loading…";
+    try {
+      const tok = await S.user.getIdToken(true); // force refresh
+      const claims = JSON.parse(atob(tok.split('.')[1]));
+      const safe = { ...claims };
+      delete safe.firebase; // big nested obj
+      // Direct Storage probe: try writing tiny 1-byte file to validate rules
+      const probePath = `users/${S.user.uid}/cards/debug-${Date.now()}.jpg`;
+      let storageProbe = "?";
+      try {
+        await storage.ref(probePath).putString("x", "raw", { contentType: "image/jpeg" });
+        storageProbe = "OK ✅";
+        await storage.ref(probePath).delete().catch(()=>{});
+      } catch (e) { storageProbe = "FAIL: " + (e.code || e.message); }
+      // Direct Firestore probe
+      let fsProbe = "?";
+      try {
+        const tr = db.collection("users").doc(S.user.uid).collection("contacts").doc("_debug");
+        await tr.set({ ping: Date.now() }, { merge: true });
+        fsProbe = "OK ✅";
+        await tr.delete().catch(()=>{});
+      } catch (e) { fsProbe = "FAIL: " + (e.code || e.message); }
+      out.textContent = JSON.stringify({
+        uid: S.user.uid,
+        email: S.user.email,
+        emailVerified_client: S.user.emailVerified,
+        token_claims: safe,
+        firestore_probe: fsProbe,
+        storage_probe: storageProbe
+      }, null, 2);
+    } catch (e) { out.textContent = "Error: " + (e.message || e); }
   });
   shell.querySelector('[data-act="export-vcf"]').addEventListener("click", () => {
     const all = S.contacts.map(buildVcf).join("\r\n");
