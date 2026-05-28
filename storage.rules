@@ -3,9 +3,9 @@ rules_version = '2';
 // 同 firestore.rules 對齊：只 owner email + own uid path
 service firebase.storage {
   match /b/{bucket}/o {
+    // Google Sign-In 嘅 email 本身已由 Google 驗過 → 唔再 gate email_verified
     function isOwner() {
       return request.auth != null
-        && request.auth.token.email_verified == true
         && request.auth.token.email in ['yuwaiho112@gmail.com'];
     }
     match /users/{uid}/cards/{file} {

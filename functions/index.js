@@ -77,7 +77,8 @@ exports.ocr = onRequest(
       try { decoded = await admin.auth().verifyIdToken(m[1]); }
       catch (e) { return res.status(401).json({ error: "invalid token" }); }
 
-      if (!decoded.email_verified || !OWNER_EMAILS.includes(decoded.email)) {
+      // Google Sign-In 嘅 email 本身已由 Google 驗過 → 唔再 gate email_verified
+      if (!decoded.email || !OWNER_EMAILS.includes(decoded.email)) {
         return res.status(403).json({ error: "not in owner allowlist" });
       }
 
