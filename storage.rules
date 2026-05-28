@@ -1,0 +1,21 @@
+rules_version = '2';
+// 私人商用聯絡簿 — 卡片相片
+// 同 firestore.rules 對齊：只 owner email + own uid path
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isOwner() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in ['yuwaiho112@gmail.com'];
+    }
+    match /users/{uid}/cards/{file} {
+      allow read, write: if isOwner() && request.auth.uid == uid
+        && (request.resource == null
+            || (request.resource.size < 4 * 1024 * 1024
+                && request.resource.contentType.matches('image/.*')));
+    }
+    match /{path=**} {
+      allow read, write: if false;
+    }
+  }
+}

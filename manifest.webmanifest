@@ -1,0 +1,14 @@
+{
+  "name": "聯絡簿 · Contacts",
+  "short_name": "聯絡簿",
+  "description": "私人商用聯絡本：影名片自動 OCR、雲端 sync、可加返手機通訊錄。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0e1117",
+  "theme_color": "#0e1117",
+  "lang": "zh-Hant",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

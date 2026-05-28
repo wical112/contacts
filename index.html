@@ -1,0 +1,694 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
+<meta name="theme-color" content="#0e1117">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<title>聯絡簿 · Contacts</title>
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="./icon.svg">
+<script defer src="https://cdn.tailwindcss.com"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
+<style>
+  html,body{background:#0e1117;color:#e5e7eb;-webkit-tap-highlight-color:transparent}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang HK","Noto Sans HK",system-ui,sans-serif;
+       padding-bottom:env(safe-area-inset-bottom)}
+  .glass{background:rgba(22,27,34,.78);backdrop-filter:saturate(140%) blur(14px)}
+  .card{background:#161b22;border:1px solid #21262d;border-radius:14px}
+  .chip{display:inline-flex;align-items:center;gap:.25rem;padding:.15rem .55rem;border-radius:999px;
+        font-size:.72rem;background:#21262d;color:#9ca3af;border:1px solid #30363d}
+  .chip-on{background:#1f3a5f;color:#93c5fd;border-color:#1d4ed8}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;
+       padding:.6rem .9rem;border-radius:12px;font-weight:600;font-size:.92rem;
+       transition:transform .08s ease, background .15s ease}
+  .btn:active{transform:scale(.96)}
+  .btn-primary{background:#2563eb;color:#fff}
+  .btn-primary:hover{background:#1d4ed8}
+  .btn-ghost{background:#21262d;color:#e5e7eb}
+  .btn-ghost:hover{background:#30363d}
+  .btn-danger{background:#7f1d1d;color:#fecaca}
+  .field{width:100%;padding:.55rem .7rem;background:#0d1117;border:1px solid #30363d;
+         border-radius:10px;color:#e5e7eb;font-size:.95rem}
+  .field:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.18)}
+  .label{font-size:.72rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem}
+  details>summary{list-style:none;cursor:pointer}
+  details>summary::-webkit-details-marker{display:none}
+  .modal-shell{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center;
+               background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
+  .modal-sheet{width:100%;max-width:680px;max-height:92vh;overflow:auto;background:#0e1117;
+               border-top:1px solid #30363d;border-radius:18px 18px 0 0;padding:1rem 1rem 2rem;
+               animation:slideUp .22s ease}
+  @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:none;opacity:1}}
+  @media(min-width:768px){
+    .modal-shell{align-items:center}
+    .modal-sheet{border-radius:18px;border:1px solid #30363d}
+  }
+  .spinner{width:18px;height:18px;border:2px solid #3b82f6;border-top-color:transparent;border-radius:50%;
+           animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .scroll-x{overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
+  .scroll-x::-webkit-scrollbar{display:none}
+  .empty{color:#6b7280;font-style:italic;font-size:.85rem}
+  a.link{color:#93c5fd;text-decoration:underline;text-decoration-color:#1d4ed8}
+  .toast{position:fixed;left:50%;top:1rem;transform:translateX(-50%);z-index:60;
+         background:#1f2937;color:#e5e7eb;border:1px solid #374151;padding:.55rem .9rem;border-radius:12px;
+         font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;transition:opacity .2s}
+  .toast.on{opacity:1}
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- ====== HEADER ====== -->
+<header class="glass sticky top-0 z-30 border-b border-[#21262d]">
+  <div class="max-w-3xl mx-auto px-3 py-2.5 flex items-center gap-2">
+    <div class="text-lg">📇</div>
+    <div class="flex-1 min-w-0">
+      <div class="text-sm font-semibold leading-tight">聯絡簿</div>
+      <div class="text-[11px] text-gray-500 leading-tight" id="status">未登入</div>
+    </div>
+    <button class="btn btn-ghost text-sm py-1.5 px-2.5" id="btnTags" title="篩 tag">🏷️</button>
+    <button class="btn btn-ghost text-sm py-1.5 px-2.5" id="btnMenu" title="設定">⋯</button>
+  </div>
+  <div class="max-w-3xl mx-auto px-3 pb-2">
+    <input id="q" class="field" placeholder="搵：姓名／公司／電話／email／tag…" autocomplete="off">
+  </div>
+</header>
+
+<!-- ====== LOGIN GATE ====== -->
+<section id="gate" class="hidden max-w-3xl mx-auto p-6 text-center">
+  <div class="card p-6">
+    <div class="text-3xl mb-3">🔐</div>
+    <div class="text-base font-semibold mb-1">私人聯絡簿</div>
+    <div class="text-sm text-gray-400 mb-4">用主公個 Google 登入先睇得到資料。</div>
+    <button id="btnSignIn" class="btn btn-primary w-full">
+      <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3c-1.6 4.6-6 8-11.3 8-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 16 19 13 24 13c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2c-2 1.5-4.6 2.4-7.2 2.4-5.3 0-9.7-3.4-11.3-8L6 33.1C9.4 39.6 16.1 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.2 5.2c-.4.4 6.5-4.7 6.5-14.7 0-1.3-.1-2.4-.4-3.5z"/></svg>
+      用 Google 登入
+    </button>
+    <div class="text-[11px] text-gray-600 mt-3">只允許 owner email 讀寫資料；其他 Google 帳號 sign in 都會見到「無權限」。</div>
+  </div>
+</section>
+
+<!-- ====== MAIN ====== -->
+<main id="main" class="hidden max-w-3xl mx-auto px-3 pt-3 pb-32">
+  <div id="tagBar" class="scroll-x flex gap-1.5 pb-2 hidden"></div>
+  <div id="list" class="grid gap-2"></div>
+  <div id="emptyState" class="hidden card p-8 text-center mt-4">
+    <div class="text-4xl mb-2">📇</div>
+    <div class="font-semibold mb-1">仲未有聯絡人</div>
+    <div class="text-sm text-gray-400">㩒底下個相機掣影張卡片試下。</div>
+  </div>
+</main>
+
+<!-- ====== FAB ====== -->
+<div id="fab" class="hidden fixed bottom-4 right-4 z-40 flex flex-col gap-2 items-end">
+  <button class="btn btn-ghost shadow-lg" id="btnAddManual">➕ 手動加</button>
+  <label class="btn btn-primary shadow-xl text-base px-5 py-3 cursor-pointer">
+    📷 影名片
+    <input id="cam" type="file" accept="image/*" capture="environment" class="hidden">
+  </label>
+</div>
+
+<!-- ====== Toast ====== -->
+<div id="toast" class="toast"></div>
+
+<!-- ====== Templates rendered into #modalRoot ====== -->
+<div id="modalRoot"></div>
+
+<script>
+/* ---------- Firebase config ----------
+   呢個 config 係 public-by-design（Firebase web config 唔係 secret）
+   真 authz 喺 firestore.rules + storage.rules：只限 OWNER_EMAIL 讀寫。 */
+const FB = {
+  apiKey: "AIzaSyAYxzkQvaBKIz-QdvabttvrBvatYLLXt_c",
+  authDomain: "wicalyu-contacts.firebaseapp.com",
+  projectId: "wicalyu-contacts",
+  storageBucket: "wicalyu-contacts.firebasestorage.app",
+  appId: "1:584434930894:web:b2366f0fc96d01e9f9ac9f"
+};
+/* OCR proxy = Firebase Function asia-east1 (server-side ID-token verify + email allowlist) */
+const OCR_URL = "https://asia-east1-wicalyu-contacts.cloudfunctions.net/ocr";
+
+/* ---------- State ---------- */
+const S = {
+  user: null,
+  contacts: [],          // [{id, ...}]
+  selectedTags: new Set(),
+  query: "",
+  ready: false,
+  unsub: null
+};
+
+/* ---------- Utils ---------- */
+const $ = (s, r=document) => r.querySelector(s);
+const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+const fmtDate = ts => {
+  if (!ts) return "";
+  const d = ts.toDate ? ts.toDate() : new Date(ts);
+  const m = (d.getMonth()+1).toString().padStart(2,"0");
+  const day = d.getDate().toString().padStart(2,"0");
+  return `${d.getFullYear()}-${m}-${day}`;
+};
+const toast = (msg, ms=2200) => {
+  const t = $("#toast"); t.textContent = msg; t.classList.add("on");
+  clearTimeout(toast._t); toast._t = setTimeout(()=>t.classList.remove("on"), ms);
+};
+const uuid = () => crypto.randomUUID();
+
+/* ---------- Firebase boot ---------- */
+let app, auth, db, storage;
+let provider;
+
+function fbBoot() {
+  if (typeof firebase === "undefined") return setTimeout(fbBoot, 60);
+  app = firebase.initializeApp(FB);
+  auth = firebase.auth();
+  db = firebase.firestore();
+  storage = firebase.storage();
+  provider = new firebase.auth.GoogleAuthProvider();
+  auth.onAuthStateChanged(onAuth);
+  $("#btnSignIn").addEventListener("click", async () => {
+    try { await auth.signInWithPopup(provider); }
+    catch (e) {
+      if (e.code === "auth/popup-blocked") await auth.signInWithRedirect(provider);
+      else toast("登入失敗：" + (e.message || e.code));
+    }
+  });
+}
+
+function onAuth(u) {
+  if (!u) {
+    if (S.unsub) { S.unsub(); S.unsub = null; }
+    S.user = null;
+    $("#gate").classList.remove("hidden");
+    $("#main").classList.add("hidden");
+    $("#fab").classList.add("hidden");
+    $("#status").textContent = "未登入";
+    return;
+  }
+  S.user = u;
+  $("#gate").classList.add("hidden");
+  $("#main").classList.remove("hidden");
+  $("#fab").classList.remove("hidden");
+  $("#status").textContent = (u.displayName || u.email || "已登入") + " · 已連雲";
+  subscribeContacts();
+}
+
+function subscribeContacts() {
+  if (S.unsub) S.unsub();
+  S.unsub = db.collection("users").doc(S.user.uid).collection("contacts")
+    .orderBy("updatedAt", "desc")
+    .onSnapshot(snap => {
+      S.contacts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      S.ready = true;
+      render();
+    }, err => {
+      console.error("firestore subscribe", err);
+      toast("讀取失敗 — 可能你個 email 唔喺 owner allowlist 入面");
+    });
+}
+
+/* ---------- Render ---------- */
+function allTags() {
+  const m = new Map();
+  for (const c of S.contacts) (c.tags||[]).forEach(t => m.set(t, (m.get(t)||0) + 1));
+  return Array.from(m.entries()).sort((a,b) => b[1] - a[1]);
+}
+function matchQuery(c, q) {
+  if (!q) return true;
+  const hay = [
+    c.name, c.title, c.company, c.notes,
+    ...(c.phones||[]).map(p=>p.value),
+    ...(c.emails||[]).map(p=>p.value),
+    ...(c.websites||[]),
+    ...(c.tags||[])
+  ].filter(Boolean).join(" ").toLowerCase();
+  return hay.includes(q.toLowerCase());
+}
+function matchTags(c) {
+  if (!S.selectedTags.size) return true;
+  const t = new Set(c.tags||[]);
+  for (const s of S.selectedTags) if (!t.has(s)) return false;
+  return true;
+}
+function render() {
+  if (!S.ready) return;
+  // tag bar
+  const tags = allTags();
+  const tagBar = $("#tagBar");
+  if (!tags.length) {
+    tagBar.classList.add("hidden");
+  } else {
+    tagBar.classList.remove("hidden");
+    tagBar.innerHTML = tags.map(([t, n]) => {
+      const on = S.selectedTags.has(t);
+      return `<button data-tag="${esc(t)}" class="chip ${on ? "chip-on" : ""}">${esc(t)} <span class="opacity-60">${n}</span></button>`;
+    }).join("");
+  }
+  // list
+  const filtered = S.contacts.filter(c => matchQuery(c, S.query) && matchTags(c));
+  const list = $("#list");
+  const empty = $("#emptyState");
+  if (!S.contacts.length) {
+    empty.classList.remove("hidden"); list.innerHTML = ""; return;
+  }
+  empty.classList.add("hidden");
+  if (!filtered.length) {
+    list.innerHTML = `<div class="card p-6 text-center text-sm text-gray-400">無 match。試下清 search 或 tag。</div>`;
+    return;
+  }
+  list.innerHTML = filtered.map(c => {
+    const phone = (c.phones||[])[0]?.value || "";
+    const email = (c.emails||[])[0]?.value || "";
+    const tags = (c.tags||[]).slice(0,4).map(t => `<span class="chip">${esc(t)}</span>`).join("");
+    return `<div class="card p-3 flex items-center gap-3" data-id="${c.id}">
+      <div class="w-11 h-11 rounded-full bg-[#21262d] flex items-center justify-center text-base font-semibold text-blue-300 shrink-0">
+        ${esc((c.name||"·").slice(0,1))}
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="font-semibold truncate">${esc(c.name || "（無名）")}</div>
+        <div class="text-xs text-gray-400 truncate">
+          ${esc([c.title, c.company].filter(Boolean).join(" · "))}
+        </div>
+        <div class="text-[11px] text-gray-500 truncate">${esc(phone || email || fmtDate(c.capturedAt))}</div>
+        ${tags ? `<div class="mt-1 flex gap-1 flex-wrap">${tags}</div>` : ""}
+      </div>
+      <button class="btn btn-ghost text-xs py-1 px-2" data-act="open">睇</button>
+    </div>`;
+  }).join("");
+  list.querySelectorAll("[data-id]").forEach(el => {
+    el.addEventListener("click", () => openDetail(el.dataset.id));
+  });
+  tagBar.querySelectorAll("[data-tag]").forEach(el => {
+    el.addEventListener("click", () => {
+      const t = el.dataset.tag;
+      if (S.selectedTags.has(t)) S.selectedTags.delete(t); else S.selectedTags.add(t);
+      render();
+    });
+  });
+}
+
+/* ---------- Search / tag bar ---------- */
+$("#q").addEventListener("input", e => { S.query = e.target.value.trim(); render(); });
+$("#btnTags").addEventListener("click", () => {
+  const tb = $("#tagBar");
+  if (tb.classList.contains("hidden")) {
+    // no tags yet → toast
+    if (!allTags().length) return toast("仲未有 tag — 喺聯絡人入面加");
+    tb.classList.remove("hidden");
+  } else {
+    if (S.selectedTags.size) { S.selectedTags.clear(); render(); }
+    else tb.classList.add("hidden");
+  }
+});
+
+/* ---------- Camera & OCR ---------- */
+$("#cam").addEventListener("change", async e => {
+  const f = e.target.files?.[0];
+  e.target.value = ""; // allow re-select same file
+  if (!f) return;
+  try {
+    const { base64, dataUrl } = await prepImage(f);
+    const draft = await ocrCard(base64);
+    openEditor({ ...draft, _photoB64: base64, _photoPreview: dataUrl });
+  } catch (err) {
+    console.error(err);
+    toast("OCR 失敗：" + (err.message || err));
+  }
+});
+
+async function prepImage(file) {
+  const img = new Image();
+  const url = URL.createObjectURL(file);
+  await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+  const MAX = 1280;
+  const ratio = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight));
+  const w = Math.round(img.naturalWidth * ratio);
+  const h = Math.round(img.naturalHeight * ratio);
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  c.getContext("2d").drawImage(img, 0, 0, w, h);
+  URL.revokeObjectURL(url);
+  const dataUrl = c.toDataURL("image/jpeg", 0.82);
+  const base64 = dataUrl.split(",", 2)[1];
+  return { base64, dataUrl };
+}
+
+async function ocrCard(base64) {
+  showLoader("讀緊名片… AI 思考中");
+  try {
+    const token = await S.user.getIdToken();
+    const r = await fetch(OCR_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+      body: JSON.stringify({ image: base64, mime: "image/jpeg" })
+    });
+    if (!r.ok) {
+      const t = await r.text().catch(()=>"");
+      throw new Error(`HTTP ${r.status}: ${t.slice(0,200)}`);
+    }
+    const data = await r.json();
+    return normalizeDraft(data);
+  } finally {
+    hideLoader();
+  }
+}
+function normalizeDraft(d) {
+  d = d || {};
+  return {
+    name: d.name || "",
+    title: d.title || "",
+    company: d.company || "",
+    phones: Array.isArray(d.phones) ? d.phones : [],
+    emails: Array.isArray(d.emails) ? d.emails : [],
+    addresses: Array.isArray(d.addresses) ? d.addresses : [],
+    websites: Array.isArray(d.websites) ? d.websites : [],
+    notes: d.notes || "",
+    tags: Array.isArray(d.tags) ? d.tags : []
+  };
+}
+
+/* ---------- Modal: loader ---------- */
+let _loaderEl = null;
+function showLoader(msg) {
+  hideLoader();
+  _loaderEl = document.createElement("div");
+  _loaderEl.className = "modal-shell";
+  _loaderEl.innerHTML = `<div class="card p-6 m-4 flex items-center gap-3" style="border-radius:14px">
+    <div class="spinner"></div><div class="text-sm">${esc(msg)}</div>
+  </div>`;
+  document.body.appendChild(_loaderEl);
+}
+function hideLoader() { _loaderEl?.remove(); _loaderEl = null; }
+
+/* ---------- Modal: editor ---------- */
+function openEditor(draft, existingId=null) {
+  const root = $("#modalRoot");
+  const data = {
+    name: draft.name || "",
+    title: draft.title || "",
+    company: draft.company || "",
+    phones: (draft.phones||[]).map(p => typeof p === "string" ? { label:"", value:p } : p),
+    emails: (draft.emails||[]).map(p => typeof p === "string" ? { label:"", value:p } : p),
+    addresses: (draft.addresses||[]).slice(),
+    websites: (draft.websites||[]).slice(),
+    notes: draft.notes || "",
+    tags: (draft.tags||[]).slice()
+  };
+  const photoB64 = draft._photoB64;
+  const photoPreview = draft._photoPreview || draft.photoUrl;
+
+  const shell = document.createElement("div");
+  shell.className = "modal-shell";
+  shell.innerHTML = `<div class="modal-sheet">
+    <div class="flex items-center gap-2 mb-3 sticky top-0 -mt-1 pt-1 bg-[#0e1117]">
+      <div class="text-base font-semibold flex-1">${existingId ? "編輯" : "新增聯絡人"}</div>
+      <button class="btn btn-ghost text-sm py-1.5 px-2.5" data-act="close">✕</button>
+    </div>
+    ${photoPreview ? `<img src="${photoPreview}" class="w-full max-h-56 object-contain rounded-lg mb-3 bg-black/40">` : ""}
+    <div class="grid gap-2.5">
+      <div><div class="label">姓名</div><input class="field" data-f="name" value="${esc(data.name)}"></div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><div class="label">職位</div><input class="field" data-f="title" value="${esc(data.title)}"></div>
+        <div><div class="label">公司</div><input class="field" data-f="company" value="${esc(data.company)}"></div>
+      </div>
+      <div data-list="phones"><div class="label">電話</div></div>
+      <div data-list="emails"><div class="label">Email</div></div>
+      <div data-list="websites" data-simple="1"><div class="label">網址</div></div>
+      <div data-list="addresses" data-simple="1"><div class="label">地址</div></div>
+      <div><div class="label">備註</div><textarea class="field" rows="2" data-f="notes">${esc(data.notes)}</textarea></div>
+      <div>
+        <div class="label">Tag（用空格分隔）</div>
+        <input class="field" data-f="tags" value="${esc(data.tags.join(' '))}" placeholder="e.g. 展會2026 客戶 supplier">
+      </div>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button class="btn btn-ghost flex-1" data-act="close">取消</button>
+      ${existingId ? `<button class="btn btn-danger" data-act="delete">🗑️ 刪</button>` : ""}
+      <button class="btn btn-primary flex-1" data-act="save">💾 儲存</button>
+    </div>
+  </div>`;
+  root.appendChild(shell);
+
+  function renderListField(key, simple=false) {
+    const wrap = shell.querySelector(`[data-list="${key}"]`);
+    if (!wrap) return;
+    [...wrap.querySelectorAll(".row")].forEach(r=>r.remove());
+    const items = data[key];
+    items.forEach((item, i) => {
+      const row = document.createElement("div");
+      row.className = "row flex gap-1.5 mt-1";
+      if (simple) {
+        row.innerHTML = `<input class="field" value="${esc(item || "")}" data-i="${i}">
+          <button class="btn btn-ghost px-2" data-rm="${i}">✕</button>`;
+      } else {
+        row.innerHTML = `<input class="field" style="max-width:5rem" placeholder="label" value="${esc(item.label||"")}" data-k="label" data-i="${i}">
+          <input class="field flex-1" value="${esc(item.value||"")}" data-k="value" data-i="${i}">
+          <button class="btn btn-ghost px-2" data-rm="${i}">✕</button>`;
+      }
+      wrap.appendChild(row);
+    });
+    const addBtn = document.createElement("button");
+    addBtn.className = "btn btn-ghost text-xs py-1 mt-1";
+    addBtn.textContent = "+ 加一行";
+    addBtn.addEventListener("click", () => {
+      if (simple) data[key].push("");
+      else data[key].push({ label:"", value:"" });
+      renderListField(key, simple);
+    });
+    wrap.appendChild(addBtn);
+    wrap.querySelectorAll("input[data-i]").forEach(inp => {
+      inp.addEventListener("input", e => {
+        const i = +e.target.dataset.i;
+        if (simple) data[key][i] = e.target.value;
+        else data[key][i][e.target.dataset.k] = e.target.value;
+      });
+    });
+    wrap.querySelectorAll("[data-rm]").forEach(b => {
+      b.addEventListener("click", () => {
+        data[key].splice(+b.dataset.rm, 1);
+        renderListField(key, simple);
+      });
+    });
+  }
+  renderListField("phones");
+  renderListField("emails");
+  renderListField("websites", true);
+  renderListField("addresses", true);
+
+  shell.querySelector('[data-act="close"]').addEventListener("click", () => shell.remove());
+  shell.addEventListener("click", e => { if (e.target === shell) shell.remove(); });
+
+  shell.querySelector('[data-act="save"]').addEventListener("click", async () => {
+    // collect
+    ["name","title","company","notes"].forEach(k => data[k] = shell.querySelector(`[data-f="${k}"]`).value.trim());
+    data.tags = shell.querySelector('[data-f="tags"]').value
+      .split(/[\s,，、]+/).map(s=>s.trim()).filter(Boolean);
+    data.phones = data.phones.filter(p => p.value?.trim());
+    data.emails = data.emails.filter(p => p.value?.trim());
+    data.websites = data.websites.filter(Boolean).map(s=>s.trim()).filter(Boolean);
+    data.addresses = data.addresses.filter(Boolean).map(s=>s.trim()).filter(Boolean);
+    if (!data.name && !data.company && !data.phones.length && !data.emails.length) {
+      return toast("起碼填一樣：名 / 公司 / 電話 / email");
+    }
+    try {
+      showLoader("儲存中…");
+      await saveContact(data, existingId, photoB64);
+      hideLoader();
+      shell.remove();
+      toast("已儲存");
+    } catch (err) {
+      hideLoader();
+      console.error(err);
+      toast("儲存失敗：" + (err.message || err));
+    }
+  });
+
+  const del = shell.querySelector('[data-act="delete"]');
+  if (del) del.addEventListener("click", async () => {
+    if (!confirm("確定刪除呢個聯絡人？")) return;
+    try {
+      await db.collection("users").doc(S.user.uid).collection("contacts").doc(existingId).delete();
+      shell.remove();
+      toast("已刪除");
+    } catch (err) {
+      toast("刪除失敗：" + (err.message || err));
+    }
+  });
+}
+
+async function saveContact(data, existingId, photoB64) {
+  const ts = firebase.firestore.FieldValue.serverTimestamp();
+  const id = existingId || uuid();
+  const ref = db.collection("users").doc(S.user.uid).collection("contacts").doc(id);
+  let photoUrl = null;
+  if (photoB64) {
+    const blob = b64ToBlob(photoB64, "image/jpeg");
+    const path = `users/${S.user.uid}/cards/${id}.jpg`;
+    const snap = await storage.ref(path).put(blob, { contentType: "image/jpeg" });
+    photoUrl = await snap.ref.getDownloadURL();
+  }
+  const payload = {
+    name: data.name, title: data.title, company: data.company,
+    phones: data.phones, emails: data.emails,
+    addresses: data.addresses, websites: data.websites,
+    notes: data.notes, tags: data.tags,
+    updatedAt: ts
+  };
+  if (!existingId) payload.capturedAt = ts;
+  if (photoUrl) payload.photoUrl = photoUrl;
+  await ref.set(payload, { merge: true });
+}
+
+function b64ToBlob(b64, type) {
+  const bin = atob(b64);
+  const u8 = new Uint8Array(bin.length);
+  for (let i=0; i<bin.length; i++) u8[i] = bin.charCodeAt(i);
+  return new Blob([u8], { type });
+}
+
+/* ---------- Detail view ---------- */
+function openDetail(id) {
+  const c = S.contacts.find(x => x.id === id);
+  if (!c) return;
+  const root = $("#modalRoot");
+  const shell = document.createElement("div");
+  shell.className = "modal-shell";
+  const phones = (c.phones||[]).map(p => `<div class="flex items-center gap-2"><span class="chip">${esc(p.label||"phone")}</span>
+    <a class="link" href="tel:${esc(p.value)}">${esc(p.value)}</a>
+    <button class="btn btn-ghost text-xs py-0.5 px-2 ml-auto" data-copy="${esc(p.value)}">複製</button></div>`).join("");
+  const emails = (c.emails||[]).map(p => `<div class="flex items-center gap-2"><span class="chip">${esc(p.label||"email")}</span>
+    <a class="link" href="mailto:${esc(p.value)}">${esc(p.value)}</a>
+    <button class="btn btn-ghost text-xs py-0.5 px-2 ml-auto" data-copy="${esc(p.value)}">複製</button></div>`).join("");
+  const sites = (c.websites||[]).map(w => `<a class="link block truncate" href="${esc(/^https?:/.test(w)?w:'https://'+w)}" target="_blank" rel="noopener">${esc(w)}</a>`).join("");
+  const addrs = (c.addresses||[]).map(a => `<div class="text-sm">📍 <a class="link" target="_blank" rel="noopener" href="https://maps.google.com/?q=${encodeURIComponent(a)}">${esc(a)}</a></div>`).join("");
+  const tagsHtml = (c.tags||[]).map(t => `<span class="chip">${esc(t)}</span>`).join(" ");
+  shell.innerHTML = `<div class="modal-sheet">
+    <div class="flex items-center gap-2 mb-3 sticky top-0 -mt-1 pt-1 bg-[#0e1117]">
+      <div class="text-base font-semibold flex-1 truncate">${esc(c.name || "（無名）")}</div>
+      <button class="btn btn-ghost text-sm py-1.5 px-2.5" data-act="edit">✏️ 編輯</button>
+      <button class="btn btn-ghost text-sm py-1.5 px-2.5" data-act="close">✕</button>
+    </div>
+    ${c.photoUrl ? `<img src="${esc(c.photoUrl)}" class="w-full max-h-56 object-contain rounded-lg mb-3 bg-black/40">` : ""}
+    <div class="grid gap-2.5">
+      <div class="text-sm text-gray-400">${esc([c.title, c.company].filter(Boolean).join(" · ")) || `<span class="empty">未填職位／公司</span>`}</div>
+      ${phones ? `<div class="grid gap-1.5">${phones}</div>` : ""}
+      ${emails ? `<div class="grid gap-1.5">${emails}</div>` : ""}
+      ${sites ? `<div class="grid gap-1">${sites}</div>` : ""}
+      ${addrs ? `<div class="grid gap-1">${addrs}</div>` : ""}
+      ${c.notes ? `<div class="card p-2.5 text-sm whitespace-pre-wrap">${esc(c.notes)}</div>` : ""}
+      ${tagsHtml ? `<div class="flex gap-1 flex-wrap">${tagsHtml}</div>` : ""}
+      <div class="text-[11px] text-gray-500 mt-2">影於 ${fmtDate(c.capturedAt)} · 更新於 ${fmtDate(c.updatedAt)}</div>
+    </div>
+    <div class="flex gap-2 mt-4">
+      <button class="btn btn-ghost flex-1" data-act="vcard">📥 加入手機通訊錄 (.vcf)</button>
+    </div>
+  </div>`;
+  root.appendChild(shell);
+
+  shell.querySelector('[data-act="close"]').addEventListener("click", () => shell.remove());
+  shell.addEventListener("click", e => { if (e.target === shell) shell.remove(); });
+  shell.querySelector('[data-act="edit"]').addEventListener("click", () => {
+    shell.remove();
+    openEditor({ ...c, _photoPreview: c.photoUrl }, c.id);
+  });
+  shell.querySelector('[data-act="vcard"]').addEventListener("click", () => downloadVcf(c));
+  shell.querySelectorAll("[data-copy]").forEach(b => b.addEventListener("click", async () => {
+    try { await navigator.clipboard.writeText(b.dataset.copy); toast("已複製"); }
+    catch { toast("複製失敗"); }
+  }));
+}
+
+/* ---------- vCard export ---------- */
+function vEsc(s){ return String(s||"").replace(/([,;\\])/g,"\\$1").replace(/\n/g,"\\n"); }
+function buildVcf(c) {
+  const lines = ["BEGIN:VCARD","VERSION:3.0"];
+  if (c.name) lines.push(`FN:${vEsc(c.name)}`);
+  if (c.name) lines.push(`N:${vEsc(c.name)};;;;`);
+  if (c.company || c.title) {
+    if (c.company) lines.push(`ORG:${vEsc(c.company)}`);
+    if (c.title) lines.push(`TITLE:${vEsc(c.title)}`);
+  }
+  (c.phones||[]).forEach(p => {
+    if (!p.value) return;
+    const type = (p.label||"").toLowerCase().includes("mobile") || /^9|^6|^5/.test(p.value) ? "CELL" : "WORK";
+    lines.push(`TEL;TYPE=${type}:${vEsc(p.value)}`);
+  });
+  (c.emails||[]).forEach(p => {
+    if (!p.value) return;
+    lines.push(`EMAIL;TYPE=WORK:${vEsc(p.value)}`);
+  });
+  (c.websites||[]).forEach(w => { if (w) lines.push(`URL:${vEsc(w)}`); });
+  (c.addresses||[]).forEach(a => { if (a) lines.push(`ADR;TYPE=WORK:;;${vEsc(a)};;;;`); });
+  if (c.notes) lines.push(`NOTE:${vEsc(c.notes)}`);
+  if ((c.tags||[]).length) lines.push(`CATEGORIES:${(c.tags||[]).map(vEsc).join(",")}`);
+  lines.push("END:VCARD");
+  return lines.join("\r\n");
+}
+function downloadVcf(c) {
+  const vcf = buildVcf(c);
+  const blob = new Blob([vcf], { type: "text/vcard;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${(c.name||"contact").replace(/[^\w一-鿿 -]/g,"_")}.vcf`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+/* ---------- Menu (export / sign out) ---------- */
+$("#btnMenu").addEventListener("click", openMenu);
+function openMenu() {
+  const root = $("#modalRoot");
+  const shell = document.createElement("div");
+  shell.className = "modal-shell";
+  shell.innerHTML = `<div class="modal-sheet" style="max-width:480px">
+    <div class="flex items-center gap-2 mb-3"><div class="font-semibold flex-1">設定</div>
+      <button class="btn btn-ghost text-sm py-1.5 px-2.5" data-act="close">✕</button></div>
+    <div class="text-xs text-gray-400 mb-3">登入：${esc(S.user?.email||"")}</div>
+    <div class="grid gap-2">
+      <button class="btn btn-ghost" data-act="export-json">📥 匯出全部 JSON</button>
+      <button class="btn btn-ghost" data-act="export-vcf">📥 匯出全部 vCard (.vcf)</button>
+      <button class="btn btn-ghost" data-act="signout">🚪 登出</button>
+    </div>
+    <div class="text-[11px] text-gray-600 mt-4">${S.contacts.length} 個聯絡人 · 私人 noindex.</div>
+  </div>`;
+  root.appendChild(shell);
+  shell.querySelector('[data-act="close"]').addEventListener("click", () => shell.remove());
+  shell.addEventListener("click", e => { if (e.target === shell) shell.remove(); });
+  shell.querySelector('[data-act="signout"]').addEventListener("click", async () => { await auth.signOut(); shell.remove(); });
+  shell.querySelector('[data-act="export-json"]').addEventListener("click", () => {
+    const out = S.contacts.map(c => { const x = {...c}; delete x.id; return x; });
+    const blob = new Blob([JSON.stringify(out, null, 2)], { type:"application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `contacts-${new Date().toISOString().slice(0,10)}.json`;
+    a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+  });
+  shell.querySelector('[data-act="export-vcf"]').addEventListener("click", () => {
+    const all = S.contacts.map(buildVcf).join("\r\n");
+    const blob = new Blob([all], { type:"text/vcard;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `contacts-${new Date().toISOString().slice(0,10)}.vcf`;
+    a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+  });
+}
+
+$("#btnAddManual").addEventListener("click", () => openEditor({}));
+
+/* ---------- PWA service worker ---------- */
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js").catch(()=>{});
+}
+
+window.addEventListener("DOMContentLoaded", fbBoot);
+</script>
+</body>
+</html>

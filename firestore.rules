@@ -1,0 +1,25 @@
+rules_version = '2';
+// 私人商用聯絡簿 — single-owner-by-email model
+// authz = 雙閘：(1) signed-in (2) email 喺 OWNER_EMAILS 入面
+// owners 喺 deploy 時由腳本替換、唔留 wildcard
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isOwner() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in ['yuwaiho112@gmail.com'];
+    }
+
+    // /users/{uid}/contacts/{cid}
+    // uid 必須係自己（即使係 owner，都唔可以寫去其他 uid path）
+    match /users/{uid}/contacts/{cid} {
+      allow read, write: if isOwner() && request.auth.uid == uid;
+    }
+
+    // 預設拒絕所有其他 path
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
