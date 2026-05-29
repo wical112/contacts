@@ -231,7 +231,8 @@ const FB = {
   appId: "1:584434930894:web:b2366f0fc96d01e9f9ac9f"
 };
 /* OCR proxy = Firebase Function asia-east1 (server-side ID-token verify + email allowlist) */
-const OCR_URL = "https://asia-east1-wicalyu-contacts.cloudfunctions.net/ocr";
+const OCR_URL    = "https://asia-east1-wicalyu-contacts.cloudfunctions.net/ocr";
+const ENRICH_URL = "https://asia-east1-wicalyu-contacts.cloudfunctions.net/enrich";
 
 /* ---------- State ---------- */
 const S = {
@@ -654,8 +655,60 @@ async function ocrCard(base64) {
     hideLoader();
   }
 }
+// 把 Function 返嘅 4 個 enum array flatten 入 tags[] 加 namespace prefix
+function enumToTags(d) {
+  const out = [];
+  for (const ns of ["industry","region","seniority","channel"]) {
+    const key = ns + "s"; // industries, regions, seniorities, channels — 但 seniority 已是 plural 形
+    // 修正：industries / regions / seniority / channels（seniority 唔加 s）
+    const realKey = ns === "seniority" ? "seniority" : key;
+    const arr = d[realKey];
+    if (Array.isArray(arr)) for (const v of arr) if (v) out.push(ns + "/" + v);
+  }
+  return out;
+}
+/* ---------- Batch enrich：對未有 industry/* tag 嘅 contact 跑 text-only enrich ---------- */
+async function enrichAllMissing() {
+  const candidates = S.contacts.filter(c => !(c.tags||[]).some(t => t.startsWith("industry/")));
+  if (!candidates.length) return toast("所有人都已有 industry tag，唔需要補");
+  const cap = 50;
+  if (candidates.length > cap) {
+    if (!confirm(`有 ${candidates.length} 個聯絡人未派 tag。今次處理頭 ${cap} 個，可再撳一次處理其餘？`)) return;
+  }
+  const batch = candidates.slice(0, cap);
+  showLoader(`AI 補緊 tag… 0 / ${batch.length}`);
+  const token = await S.user.getIdToken();
+  let ok = 0, fail = 0;
+  for (let i = 0; i < batch.length; i++) {
+    const c = batch[i];
+    try {
+      const r = await fetch(ENRICH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + token },
+        body: JSON.stringify({ name: c.name||"", title: c.title||"", company: c.company||"", notes: c.notes||"" })
+      });
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const enriched = await r.json();
+      const merged = mergeEnrichedTags(c.tags, enriched);
+      if (merged.length !== (c.tags||[]).length || JSON.stringify(merged) !== JSON.stringify(c.tags||[])) {
+        await db.collection("users").doc(S.user.uid).collection("contacts").doc(c.id)
+          .update({ tags: merged, updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+      }
+      ok++;
+    } catch (e) {
+      console.error("enrich fail", c.id, e);
+      fail++;
+    }
+    showLoader(`AI 補緊 tag… ${i+1} / ${batch.length}`);
+  }
+  hideLoader();
+  toast(`完成：${ok} 個成功${fail ? `、${fail} 個失敗` : ""}`);
+}
+
 function normalizeDraft(d) {
   d = d || {};
+  const enumTags = enumToTags(d);
+  const freeTags = Array.isArray(d.tags) ? d.tags.filter(t => !/^(industry|region|seniority|channel)\//.test(t)) : [];
   return {
     name: d.name || "",
     title: d.title || "",
@@ -665,8 +718,18 @@ function normalizeDraft(d) {
     addresses: Array.isArray(d.addresses) ? d.addresses : [],
     websites: Array.isArray(d.websites) ? d.websites : [],
     notes: d.notes || "",
-    tags: Array.isArray(d.tags) ? d.tags : []
+    tags: [...new Set([...enumTags, ...freeTags])]
   };
+}
+// merge enum tags 入現有 contact 嘅 tags[]（保留所有 free-form tag、replace 同 namespace 嘅）
+function mergeEnrichedTags(existing, enriched) {
+  const namespaces = new Set(["industry","region","seniority","channel"]);
+  const kept = (existing || []).filter(t => {
+    const ns = t.split("/")[0];
+    return !namespaces.has(ns); // 留低自由 tag、清舊 namespace tag
+  });
+  const added = enumToTags(enriched);
+  return [...new Set([...kept, ...added])];
 }
 
 /* ---------- Modal: loader ---------- */
@@ -980,6 +1043,7 @@ function openMenu() {
         </div>
         <input type="checkbox" id="optLeftHand" ${leftHand ? "checked" : ""}>
       </label>
+      <button class="btn btn-ghost" data-act="enrich-all">🪄 為舊資料補 tag（AI）</button>
       <button class="btn btn-ghost" data-act="export-json">📥 匯出全部 JSON</button>
       <button class="btn btn-ghost" data-act="export-vcf">📥 匯出全部 vCard (.vcf)</button>
       <button class="btn btn-ghost" data-act="signout">🚪 登出</button>
@@ -995,6 +1059,10 @@ function openMenu() {
   shell.querySelector('#optLeftHand').addEventListener("change", e => {
     localStorage.setItem("fab_left", e.target.checked ? "1" : "");
     applyHandedness();
+  });
+  shell.querySelector('[data-act="enrich-all"]').addEventListener("click", async () => {
+    shell.remove();
+    await enrichAllMissing();
   });
   shell.querySelector('[data-act="export-json"]').addEventListener("click", () => {
     const out = S.contacts.map(c => { const x = {...c}; delete x.id; return x; });

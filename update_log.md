@@ -1,5 +1,45 @@
 # Update log
 
+## 2026-05-29 · v2 PR#3 — Auto-tag enrichment（B）
+
+**改動**：OCR Function 派多維 tag、加 text-only `/enrich` endpoint 為舊資料補 tag。
+
+**Function 端**（`functions/index.js` 完全重寫）：
+- 引入 `VOCAB` controlled vocabulary：
+  - `industries` 15 個 enum（finance / legal / tech / healthcare / education / manufacturing / retail / hospitality / media / government / consulting / realestate / logistics / marketing / ngo）
+  - `regions` 5 個（hk / cn / tw / asia / global）
+  - `seniority` 5 個（c-level / director / manager / specialist / junior）
+  - `channels` 5 個（wechat / telegram / whatsapp / line / linkedin — 只 notes 抽到 ID 才派）
+- 新 `OCR_SCHEMA` + `ENRICH_SCHEMA` 把 4 維 tag 拆 4 個 enum array（Gemini responseSchema 強制揀 enum 內）
+- 新 `TAG_GUIDE` PROMPT 段、conservative > aggressive，唔肯定就留空
+- 新 `sanitizeTags()` server-side allow-list filter（model 萬一 hallucinate 一律 drop）
+- 抽 `verifyOwner()` + `callGemini()` helper 俾兩條 endpoint reuse
+- 新 `enrich` endpoint：`{name,title,company,notes} → {industries,regions,seniority,channels}`，text-only call，cost 比 vision 低 90%、為舊卡片補 tag 用
+
+**Client 端**：
+- 加 `ENRICH_URL` 常數
+- `normalizeDraft()` 改：把 OCR 返嘅 4 個 enum array flatten 入 `tags[]` 加 namespace prefix（`industry/legal` / `region/hk` / `seniority/c-level` / `channel/wechat`），自由 tag 保留無 prefix
+- 新 `mergeEnrichedTags()`：merge enrich 結果入現有 contact tag，保留自由 tag、清舊 namespace tag、加新 namespace tag
+- 新 `enrichAllMissing()`：iterate `S.contacts` 入面冇 `industry/*` tag 嘅 contact，逐個 serial call enrich endpoint，updateDoc 寫新 tags + serverTimestamp、loader 顯示「補緊 tag… N / M」進度；50 個 batch cap + confirm prompt
+- 設定 menu 加「🪄 為舊資料補 tag（AI）」按鈕
+
+**Tag bar UI 即時得益**：
+- 新影一張律師事務所 CEO 卡 → tags auto 有 `industry/legal` + `seniority/c-level`
+- Tag bar 自動按 namespace 分組同上色（行業藍／地區綠／職位紫／渠道橙）
+
+**Function URL**：
+- `https://asia-east1-wicalyu-contacts.cloudfunctions.net/ocr`（updated）
+- `https://asia-east1-wicalyu-contacts.cloudfunctions.net/enrich`（new）
+
+**SW VERSION bump** `v4` → `v5-2026-05-29-autotag`。
+
+**Verify**：
+- 設定 → 「為舊資料補 tag」→ 進度 loader → 完成後 tag bar 應出分組 chip
+- 影新卡片 → tag 自動 grouped
+- 自由 tag 仍可用、唔受影響
+
+---
+
 ## 2026-05-29 · v2 PR#2 — UI/UX 全面 refresh（UU 主導）
 
 **改動範圍**：整個視覺與交互語言由 GitHub-blue dark minimal 升級到接近 iOS Contacts.app 質感。
