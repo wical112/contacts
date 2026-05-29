@@ -7,9 +7,15 @@
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
 <title>聯絡簿 · Contacts</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="聯絡簿">
+<meta name="format-detection" content="telephone=no">
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="./icon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png">
+<link rel="apple-touch-icon" sizes="192x192" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="512x512" href="./icons/icon-512.png">
 <script defer src="https://cdn.tailwindcss.com"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
@@ -161,6 +167,62 @@ const toast = (msg, ms=2200) => {
 };
 const uuid = () => crypto.randomUUID();
 
+/* ---------- Search normalize + scoring ----------
+   Build per-contact search index on Firestore snapshot (once per data change).
+   Render uses scoreMatch（prefix > phone-digit > substring）並 sort by relevance + updatedAt。 */
+const normPhone = s => {
+  const d = String(s||"").replace(/[^\d+]/g, "");
+  // HK 8-digit 自動 prefix 852 做 canonical（搜「9286」可撞「+852 9286 ...」）
+  const noPlus = d.replace(/^\+/, "");
+  return noPlus.length === 8 && /^[2-9]/.test(noPlus) ? "852" + noPlus : noPlus;
+};
+const normText = s => String(s||"").normalize("NFC").toLowerCase().trim();
+const tokenize = s => normText(s).split(/[\s·,，、\/]+/).filter(Boolean);
+const emailLocal = e => normText(e).split("@")[0] || "";
+
+function buildSearchIndex() {
+  S._idx = S.contacts.map(c => {
+    const tokens = new Set([
+      ...tokenize(c.name), ...tokenize(c.title), ...tokenize(c.company),
+      ...(c.tags||[]).flatMap(tokenize),
+    ]);
+    const phones = (c.phones||[]).map(p => normPhone(p.value));
+    const emails = (c.emails||[]).map(p => normText(p.value));
+    const emailLocals = emails.map(e => e.split("@")[0]);
+    const hay = normText([
+      c.name, c.title, c.company, c.notes,
+      ...(c.phones||[]).map(p => p.value),
+      ...(c.emails||[]).map(p => p.value),
+      ...(c.websites||[]),
+      ...(c.tags||[])
+    ].filter(Boolean).join(" "));
+    return { id: c.id, tokens: [...tokens], phones, emails, emailLocals, hay,
+             nameN: normText(c.name), companyN: normText(c.company) };
+  });
+}
+
+function scoreMatch(idx, q) {
+  if (!q) return 1; // no query → all match (sort 仍用 updatedAt)
+  const qn = normText(q);
+  const qdigits = q.replace(/[^\d]/g, "");
+  let score = 0;
+  // name prefix
+  if (idx.nameN && idx.nameN.startsWith(qn)) score = Math.max(score, 1000);
+  // company prefix
+  if (idx.companyN && idx.companyN.startsWith(qn)) score = Math.max(score, 700);
+  // phone digit substring（normalized）
+  if (qdigits.length >= 3) {
+    for (const p of idx.phones) if (p.includes(qdigits)) { score = Math.max(score, 500); break; }
+  }
+  // email local prefix
+  for (const e of idx.emailLocals) if (e.startsWith(qn)) { score = Math.max(score, 350); break; }
+  // token prefix（任何 tokenized field）
+  for (const t of idx.tokens) if (t.startsWith(qn)) { score = Math.max(score, 450); break; }
+  // any field substring（fallback）
+  if (idx.hay.includes(qn)) score = Math.max(score, 400);
+  return score;
+}
+
 /* ---------- Firebase boot ---------- */
 let app, auth, db, storage;
 let provider;
@@ -206,6 +268,7 @@ function subscribeContacts() {
     .orderBy("updatedAt", "desc")
     .onSnapshot(snap => {
       S.contacts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      buildSearchIndex();
       S.ready = true;
       render();
     }, err => {
@@ -219,17 +282,6 @@ function allTags() {
   const m = new Map();
   for (const c of S.contacts) (c.tags||[]).forEach(t => m.set(t, (m.get(t)||0) + 1));
   return Array.from(m.entries()).sort((a,b) => b[1] - a[1]);
-}
-function matchQuery(c, q) {
-  if (!q) return true;
-  const hay = [
-    c.name, c.title, c.company, c.notes,
-    ...(c.phones||[]).map(p=>p.value),
-    ...(c.emails||[]).map(p=>p.value),
-    ...(c.websites||[]),
-    ...(c.tags||[])
-  ].filter(Boolean).join(" ").toLowerCase();
-  return hay.includes(q.toLowerCase());
 }
 function matchTags(c) {
   if (!S.selectedTags.size) return true;
@@ -251,8 +303,20 @@ function render() {
       return `<button data-tag="${esc(t)}" class="chip ${on ? "chip-on" : ""}">${esc(t)} <span class="opacity-60">${n}</span></button>`;
     }).join("");
   }
-  // list
-  const filtered = S.contacts.filter(c => matchQuery(c, S.query) && matchTags(c));
+  // list — score-based filter + relevance sort（query 為空時 fall back updatedAt desc）
+  const idxById = new Map((S._idx||[]).map(i => [i.id, i]));
+  const q = S.query;
+  let filtered;
+  if (!q) {
+    filtered = S.contacts.filter(matchTags);
+  } else {
+    filtered = S.contacts
+      .filter(matchTags)
+      .map(c => ({ c, s: scoreMatch(idxById.get(c.id) || {}, q) }))
+      .filter(x => x.s > 0)
+      .sort((a, b) => b.s - a.s || ((b.c.updatedAt?.seconds||0) - (a.c.updatedAt?.seconds||0)))
+      .map(x => x.c);
+  }
   const list = $("#list");
   const empty = $("#emptyState");
   if (!S.contacts.length) {
@@ -295,7 +359,13 @@ function render() {
 }
 
 /* ---------- Search / tag bar ---------- */
-$("#q").addEventListener("input", e => { S.query = e.target.value.trim(); render(); });
+// debounce 120ms — 避免每 keystroke 重 render 100+ cards
+let _qDebounce = 0;
+$("#q").addEventListener("input", e => {
+  const v = e.target.value.trim();
+  clearTimeout(_qDebounce);
+  _qDebounce = setTimeout(() => { S.query = v; render(); }, 120);
+});
 $("#btnTags").addEventListener("click", () => {
   const tb = $("#tagBar");
   if (tb.classList.contains("hidden")) {
@@ -725,7 +795,38 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js").catch(()=>{});
 }
 
-window.addEventListener("DOMContentLoaded", fbBoot);
+/* ---------- iOS「加到主畫面」提示 ----------
+   只對 iOS Safari、未 standalone、未近 7 日 dismiss 嘅 user，第一次開 app 5 秒後 slide-down 細 banner。 */
+function maybeShowInstallHint() {
+  const ua = navigator.userAgent;
+  const isIOS = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+  const isStandalone = window.navigator.standalone === true
+    || window.matchMedia("(display-mode: standalone)").matches;
+  if (!isIOS || isStandalone) return;
+  const until = +localStorage.getItem("a2hs_dismissed_until") || 0;
+  if (Date.now() < until) return;
+  setTimeout(() => {
+    if (document.getElementById("a2hsBanner")) return;
+    const b = document.createElement("div");
+    b.id = "a2hsBanner";
+    b.className = "glass fixed left-3 right-3 z-50 rounded-2xl p-3 flex items-center gap-3 shadow-2xl border border-[#30363d]";
+    b.style.cssText = "bottom:calc(env(safe-area-inset-bottom) + 90px);animation:slideUp .3s ease";
+    b.innerHTML = `
+      <div class="text-xl shrink-0">📲</div>
+      <div class="flex-1 text-sm leading-tight">
+        <div class="font-semibold">加我入主畫面</div>
+        <div class="text-[12px] text-gray-400">撳分享掣 <span style="color:#0a84ff">⎋</span> → 加到主畫面</div>
+      </div>
+      <button class="btn btn-ghost text-xs py-1 px-2" id="a2hsClose">知道喇</button>`;
+    document.body.appendChild(b);
+    b.querySelector("#a2hsClose").addEventListener("click", () => {
+      localStorage.setItem("a2hs_dismissed_until", Date.now() + 7 * 24 * 3600 * 1000);
+      b.remove();
+    });
+  }, 5000);
+}
+
+window.addEventListener("DOMContentLoaded", () => { fbBoot(); maybeShowInstallHint(); });
 </script>
 </body>
 </html>

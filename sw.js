@@ -1,9 +1,12 @@
 /* contacts — service worker
    App shell precache。Firebase / Gemini call 唔經 SW（only same-origin GET）。
    改 code 後一定要 bump VERSION，否則用戶食 cache 舊版。 */
-const VERSION = "v2-2026-05-28-debug";
+const VERSION = "v3-2026-05-29-pwa-search";
 const SHELL = "shell-" + VERSION;
-const URLS = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg"];
+const URLS = [
+  "./", "./index.html", "./manifest.webmanifest", "./icon.svg",
+  "./icons/icon-180.png", "./icons/icon-192.png", "./icons/icon-512.png"
+];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(SHELL).then(c => c.addAll(URLS)).then(() => self.skipWaiting()));

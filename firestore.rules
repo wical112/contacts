@@ -6,10 +6,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Google Sign-In 嘅 email 本身已由 Google 驗過 → 唔再 gate email_verified
-    // （Firebase ID token 嘅 email_verified claim 對某啲 OAuth provider 唔一定 true）
+    // 用 == literal 而唔用 `in [...]`：保險規避 rules engine quirk
     function isOwner() {
       return request.auth != null
-        && request.auth.token.email in ['yuwaiho112@gmail.com'];
+        && request.auth.token.email == 'yuwaiho112@gmail.com';
     }
 
     // /users/{uid}/contacts/{cid}

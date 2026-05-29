@@ -4,15 +4,18 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     // Google Sign-In 嘅 email 本身已由 Google 驗過 → 唔再 gate email_verified
+    // 用 == literal 而唔用 `in [...]`：規避 Storage Rules engine 某 edge case
     function isOwner() {
       return request.auth != null
-        && request.auth.token.email in ['yuwaiho112@gmail.com'];
+        && request.auth.token.email == 'yuwaiho112@gmail.com';
     }
+    // 拆 read / write 分開 — write 加 size + content-type 上限；read 唔加（瀏覽圖 OK）
     match /users/{uid}/cards/{file} {
-      allow read, write: if isOwner() && request.auth.uid == uid
-        && (request.resource == null
-            || (request.resource.size < 4 * 1024 * 1024
-                && request.resource.contentType.matches('image/.*')));
+      allow read:   if isOwner() && request.auth.uid == uid;
+      allow write:  if isOwner() && request.auth.uid == uid
+        && request.resource.size < 8 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isOwner() && request.auth.uid == uid;
     }
     match /{path=**} {
       allow read, write: if false;
