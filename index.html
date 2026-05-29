@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1">
-<meta name="theme-color" content="#0e1117">
+<meta name="theme-color" content="#FAF6EF">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
 <title>聯絡簿 · Contacts</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="聯絡簿">
 <meta name="format-detection" content="telephone=no">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -23,16 +23,20 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
 <style>
   :root {
-    --accent:        #0a84ff;       /* iOS system blue */
-    --accent-dim:    #0066d4;
-    --accent-soft:   rgba(10,132,255,.18);
-    --bg:            #0e1117;
-    --bg-2:          #161b22;
-    --bg-3:          #21262d;
-    --border:        #30363d;
-    --text:          #e5e7eb;
-    --text-dim:      #9ca3af;
-    --text-fade:     #6b7280;
+    /* 文青米白紙質．暖墨棕 — 2026-05-29 */
+    --accent:        #A06E3B;            /* 焦糖橙 */
+    --accent-dim:    #8A5D31;            /* 深焦糖 */
+    --accent-soft:   rgba(160,110,59,.16);
+    --bg:            #FAF6EF;            /* 暖米紙 */
+    --bg-2:          #F2EBDD;            /* 奶油米（卡片底） */
+    --bg-3:          #E6DBC4;            /* 米駝（chip / hover） */
+    --border:        #DDD3BF;            /* 淡蘆葦 */
+    --text:          #2A2520;            /* 深墨褐（主文） */
+    --text-dim:      #7D6F5B;            /* 柔暖棕（副文） */
+    --text-fade:     #A39684;            /* 淡棕灰（提示） */
+    --shadow:        rgba(42,37,32,.10); /* 墨褐淡影 */
+    --backdrop:      rgba(42,37,32,.45); /* modal backdrop */
+    --link:          #6E4F2B;            /* 鏈接深棕 */
   }
   /* ── Core reset：Tailwind CDN 係 async load、首屏未到位前
         呢套 native CSS 保住 box-sizing 同 viewport 不溢出 ── */
@@ -49,39 +53,40 @@
   /* Row truncate fallback — 防 Tailwind .truncate 未生效時 row 撐爆視窗 */
   .row-link>div.flex-1{flex:1 1 0;min-width:0}
   .row-link>div.flex-1>div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .glass{background:rgba(22,27,34,.78);backdrop-filter:saturate(140%) blur(14px)}
-  .card{background:var(--bg-2);border:1px solid var(--bg-3);border-radius:18px}
+  .glass{background:rgba(250,246,239,.82);backdrop-filter:saturate(140%) blur(14px)}
+  .card{background:var(--bg-2);border:1px solid var(--border);border-radius:18px;box-shadow:0 1px 2px var(--shadow)}
   .chip{display:inline-flex;align-items:center;gap:.25rem;padding:.2rem .6rem;border-radius:999px;
         font-size:.72rem;background:var(--bg-3);color:var(--text-dim);border:1px solid var(--border);
         scroll-snap-align:start;flex-shrink:0;white-space:nowrap}
-  .chip-on{background:var(--accent-soft);color:#93c5fd;border-color:var(--accent)}
-  .chip-industry{background:rgba(59,130,246,.15);color:#93c5fd;border-color:rgba(59,130,246,.4)}
-  .chip-region{background:rgba(34,197,94,.15);color:#86efac;border-color:rgba(34,197,94,.4)}
-  .chip-seniority{background:rgba(168,85,247,.15);color:#d8b4fe;border-color:rgba(168,85,247,.4)}
-  .chip-channel{background:rgba(249,115,22,.15);color:#fdba74;border-color:rgba(249,115,22,.4)}
+  .chip-on{background:var(--accent-soft);color:var(--accent-dim);border-color:var(--accent)}
+  /* 文青色系 chip 分組（柔和飽和度、低對比深字底淺） */
+  .chip-industry {background:#E8DAB2;color:#5E4A1D;border-color:#D4C28A}   /* 麥黃 */
+  .chip-region   {background:#C9D5B4;color:#3D4F2A;border-color:#A8BB8A}   /* 青麥 */
+  .chip-seniority{background:#D6C6D2;color:#52364F;border-color:#BAA2B5}   /* 灰紫 */
+  .chip-channel  {background:#E3C5B5;color:#6B3F25;border-color:#CCA48E}   /* 桃粉 */
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;
        padding:.6rem .9rem;border-radius:12px;font-weight:600;font-size:.92rem;
        transition:transform .08s ease, background .15s ease, opacity .15s ease;
        -webkit-user-select:none;user-select:none}
   .btn:active{transform:scale(.96)}
-  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary{background:var(--accent);color:#FAF6EF}
   .btn-primary:hover{background:var(--accent-dim)}
   .btn-ghost{background:var(--bg-3);color:var(--text)}
   .btn-ghost:hover{background:var(--border)}
-  .btn-danger{background:#7f1d1d;color:#fecaca}
+  .btn-danger{background:#9B4A3B;color:#FAF6EF}  /* 燒紅磚 */
   .icon-btn{width:40px;height:40px;padding:0;border-radius:12px;background:var(--bg-3);color:var(--text);
             display:inline-flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;
             transition:transform .08s ease, background .15s ease}
   .icon-btn:active{transform:scale(.92)}
-  .icon-btn.on{background:var(--accent-soft);color:#93c5fd}
-  .field{width:100%;padding:.6rem .75rem;background:#0d1117;border:1px solid var(--border);
+  .icon-btn.on{background:var(--accent-soft);color:var(--accent-dim)}
+  .field{width:100%;padding:.6rem .75rem;background:#FFFCF6;border:1px solid var(--border);
          border-radius:12px;color:var(--text);font-size:.95rem}
   .field:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
   .label{font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem}
   details>summary{list-style:none;cursor:pointer}
   details>summary::-webkit-details-marker{display:none}
   .modal-shell{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center;
-               background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
+               background:var(--backdrop);backdrop-filter:blur(4px)}
   .modal-sheet{width:100%;max-width:680px;max-height:92vh;overflow:auto;background:var(--bg);
                border-top:1px solid var(--border);border-radius:24px 24px 0 0;padding:0 1rem 2rem;
                animation:slideUp .22s ease;position:relative}
@@ -99,10 +104,10 @@
   .scroll-x{overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
   .scroll-x::-webkit-scrollbar{display:none}
   .empty{color:var(--text-fade);font-style:italic;font-size:.85rem}
-  a.link{color:#93c5fd;text-decoration:underline;text-decoration-color:rgba(10,132,255,.5)}
+  a.link{color:var(--link);text-decoration:underline;text-decoration-color:rgba(110,79,43,.45)}
   .toast{position:fixed;left:50%;top:1rem;transform:translateX(-50%);z-index:60;
-         background:#1f2937;color:var(--text);border:1px solid #374151;padding:.55rem .9rem;border-radius:12px;
-         font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;transition:opacity .2s;
+         background:var(--bg-2);color:var(--text);border:1px solid var(--border);padding:.55rem .9rem;border-radius:12px;
+         font-size:.85rem;box-shadow:0 8px 24px var(--shadow);opacity:0;transition:opacity .2s;
          max-width:90vw;text-align:center}
   .toast.on{opacity:1}
 
@@ -112,9 +117,10 @@
 
   /* List contact row */
   .row-link{display:flex;align-items:center;gap:.75rem;padding:.85rem .9rem;
-            background:var(--bg-2);border:1px solid var(--bg-3);border-radius:18px;
+            background:var(--bg-2);border:1px solid var(--border);border-radius:18px;
+            box-shadow:0 1px 2px var(--shadow);
             transition:transform .08s ease, background .15s ease;cursor:pointer;-webkit-user-select:none;user-select:none}
-  .row-link:active{transform:scale(.985);background:#1a1f26}
+  .row-link:active{transform:scale(.985);background:var(--bg-3)}
   .row-link .chevron{color:var(--text-fade);font-size:1.2rem;margin-left:auto;flex-shrink:0}
 
   /* Avatar — hashColor bg + emoji industry badge */
@@ -128,23 +134,23 @@
   #fab{position:fixed;bottom:calc(env(safe-area-inset-bottom) + 18px);right:18px;z-index:40;
        display:flex;flex-direction:column;align-items:flex-end;gap:.6rem}
   #fab.left{right:auto;left:18px;align-items:flex-start}
-  .fab-main{width:60px;height:60px;border-radius:50%;background:var(--accent);color:#fff;
+  .fab-main{width:60px;height:60px;border-radius:50%;background:var(--accent);color:#FAF6EF;
             font-size:1.6rem;display:flex;align-items:center;justify-content:center;
-            box-shadow:0 12px 28px rgba(10,132,255,.4), 0 4px 10px rgba(0,0,0,.3);
+            box-shadow:0 12px 28px rgba(160,110,59,.35), 0 4px 10px var(--shadow);
             transition:transform .15s ease;-webkit-user-select:none;user-select:none}
   .fab-main:active{transform:scale(.94)}
   .fab-main.expanded{transform:rotate(45deg)}
   .fab-sub{height:42px;padding:0 .9rem .05rem 1rem;border-radius:21px;background:var(--bg-2);
-           border:1px solid var(--bg-3);color:var(--text);display:none;align-items:center;gap:.4rem;
-           box-shadow:0 6px 16px rgba(0,0,0,.35);font-size:.88rem;font-weight:500;
+           border:1px solid var(--border);color:var(--text);display:none;align-items:center;gap:.4rem;
+           box-shadow:0 6px 16px var(--shadow);font-size:.88rem;font-weight:500;
            opacity:0;transform:translateY(8px);transition:transform .2s ease, opacity .2s ease}
   #fab.open .fab-sub{display:inline-flex;opacity:1;transform:none}
   #fab.open .fab-sub:nth-child(1){transition-delay:.05s}
   #fab.open .fab-sub:nth-child(2){transition-delay:.1s}
 
   /* Quick-action menu (long-press) */
-  .quick-menu{position:fixed;z-index:55;background:var(--bg-2);border:1px solid var(--bg-3);
-              border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.5);padding:.4rem;min-width:160px;
+  .quick-menu{position:fixed;z-index:55;background:var(--bg-2);border:1px solid var(--border);
+              border-radius:14px;box-shadow:0 16px 40px var(--shadow);padding:.4rem;min-width:160px;
               animation:popIn .15s ease}
   @keyframes popIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
   .quick-menu button{display:flex;align-items:center;gap:.6rem;width:100%;padding:.6rem .8rem;
@@ -162,13 +168,20 @@
   .qjump{position:absolute;left:4px;top:60px;display:flex;flex-direction:column;gap:.3rem;z-index:6}
   .qjump button{width:30px;height:30px;border-radius:50%;background:var(--bg-3);color:var(--text-dim);
                 font-size:.7rem;font-weight:600}
-  .qjump button.on{background:var(--accent-soft);color:#93c5fd}
+  .qjump button.on{background:var(--accent-soft);color:var(--accent-dim)}
+
+  /* Tailwind 灰階 / 紅階 在文青底下 remap 到自家暖棕 token */
+  .text-gray-400{color:var(--text-dim) !important}
+  .text-gray-500{color:var(--text-fade) !important}
+  .text-gray-600{color:var(--text-fade) !important}
+  .text-red-300{color:#9B4A3B !important}
+  .text-blue-300{color:var(--accent) !important}
 </style>
 </head>
 <body class="min-h-screen">
 
 <!-- ====== HEADER ====== -->
-<header class="glass sticky top-0 z-30 border-b border-[#21262d] app-header">
+<header class="glass sticky top-0 z-30 app-header" style="border-bottom:1px solid var(--border)">
   <div class="max-w-3xl mx-auto px-3 py-2 flex items-center gap-1.5">
     <div class="text-lg">📇</div>
     <div class="flex-1 min-w-0">
@@ -443,12 +456,12 @@ function tagShort(t) {
   const i = t.indexOf("/");
   return i > 0 ? t.slice(i + 1) : t;
 }
-// Deterministic hash → HSL color（avatar bg）
+// Deterministic hash → HSL color（avatar bg）— 文青淺底深字
 function hashColor(s) {
   let h = 5381; const str = String(s || "·");
   for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
   const hue = ((h >>> 0) % 360);
-  return { bg: `hsl(${hue} 35% 24%)`, fg: `hsl(${hue} 75% 80%)` };
+  return { bg: `hsl(${hue} 32% 82%)`, fg: `hsl(${hue} 45% 28%)` };
 }
 function matchTags(c) {
   if (!S.selectedTags.size) return true;
@@ -1187,14 +1200,15 @@ function maybeShowInstallHint() {
     if (document.getElementById("a2hsBanner")) return;
     const b = document.createElement("div");
     b.id = "a2hsBanner";
-    b.className = "glass fixed left-3 right-3 z-50 rounded-2xl p-3 flex items-center gap-3 shadow-2xl border border-[#30363d]";
+    b.className = "glass fixed left-3 right-3 z-50 rounded-2xl p-3 flex items-center gap-3 shadow-2xl";
+    b.style.border = "1px solid var(--border)";
     // 改放頂部、緊貼 header 下方，避免擋住列表中段；scroll 時自動收起
     b.style.cssText = "top:calc(env(safe-area-inset-top, 0px) + 96px);animation:slideDownTop .3s ease";
     b.innerHTML = `
       <div class="text-xl shrink-0">📲</div>
       <div class="flex-1 text-sm leading-tight">
         <div class="font-semibold">加我入主畫面</div>
-        <div class="text-[12px] text-gray-400">撳分享掣 <span style="color:#0a84ff">⎋</span> → 加到主畫面</div>
+        <div class="text-[12px]" style="color:var(--text-dim)">撳分享掣 <span style="color:var(--accent)">⎋</span> → 加到主畫面</div>
       </div>
       <button class="btn btn-ghost text-xs py-1 px-2" id="a2hsClose">知道</button>`;
     document.body.appendChild(b);
