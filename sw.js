@@ -1,7 +1,7 @@
 /* contacts — service worker
    App shell precache。Firebase / Gemini call 唔經 SW（only same-origin GET）。
    改 code 後一定要 bump VERSION，否則用戶食 cache 舊版。 */
-const VERSION = "v5-2026-05-29-autotag";
+const VERSION = "v6-2026-05-29-banner-fix";
 const SHELL = "shell-" + VERSION;
 const URLS = [
   "./", "./index.html", "./manifest.webmanifest", "./icon.svg",

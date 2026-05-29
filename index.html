@@ -76,6 +76,7 @@
   .modal-bar{position:sticky;top:0;background:var(--bg);padding:.75rem 0 .6rem;z-index:5;
              display:flex;align-items:center;gap:.5rem;border-bottom:1px solid var(--bg-3);margin-bottom:.75rem}
   @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:none;opacity:1}}
+  @keyframes slideDownTop{from{transform:translateY(-20px);opacity:0}to{transform:none;opacity:1}}
   @media(min-width:768px){
     .modal-shell{align-items:center}
     .modal-sheet{border-radius:24px;border:1px solid var(--border)}
@@ -1166,19 +1167,26 @@ function maybeShowInstallHint() {
     const b = document.createElement("div");
     b.id = "a2hsBanner";
     b.className = "glass fixed left-3 right-3 z-50 rounded-2xl p-3 flex items-center gap-3 shadow-2xl border border-[#30363d]";
-    b.style.cssText = "bottom:calc(env(safe-area-inset-bottom) + 90px);animation:slideUp .3s ease";
+    // 改放頂部、緊貼 header 下方，避免擋住列表中段；scroll 時自動收起
+    b.style.cssText = "top:calc(env(safe-area-inset-top, 0px) + 96px);animation:slideDownTop .3s ease";
     b.innerHTML = `
       <div class="text-xl shrink-0">📲</div>
       <div class="flex-1 text-sm leading-tight">
         <div class="font-semibold">加我入主畫面</div>
         <div class="text-[12px] text-gray-400">撳分享掣 <span style="color:#0a84ff">⎋</span> → 加到主畫面</div>
       </div>
-      <button class="btn btn-ghost text-xs py-1 px-2" id="a2hsClose">知道喇</button>`;
+      <button class="btn btn-ghost text-xs py-1 px-2" id="a2hsClose">知道</button>`;
     document.body.appendChild(b);
-    b.querySelector("#a2hsClose").addEventListener("click", () => {
-      localStorage.setItem("a2hs_dismissed_until", Date.now() + 7 * 24 * 3600 * 1000);
-      b.remove();
-    });
+    const dismiss = (persist) => {
+      if (persist) localStorage.setItem("a2hs_dismissed_until", Date.now() + 7 * 24 * 3600 * 1000);
+      b.style.transition = "opacity .2s, transform .2s";
+      b.style.opacity = "0"; b.style.transform = "translateY(-12px)";
+      setTimeout(() => b.remove(), 220);
+    };
+    b.querySelector("#a2hsClose").addEventListener("click", () => dismiss(true));
+    // 用戶一滾動就視為「睇緊」、自動收起（不寫 7 日 dismiss）
+    const onScroll = () => { dismiss(false); window.removeEventListener("scroll", onScroll); };
+    setTimeout(() => window.addEventListener("scroll", onScroll, { passive: true }), 800);
   }, 5000);
 }
 
