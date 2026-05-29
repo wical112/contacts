@@ -509,19 +509,19 @@ function render() {
     const { bg, fg } = hashColor(c.name || c.company || c.id);
     const ind = industryEmoji(c.tags);
     const initial = (c.name || c.company || "·").slice(0,1);
-    return `<div class="row-link" data-id="${esc(c.id)}">
+    // inline style 強制 truncate — 規避 Tailwind CDN 未到位 / specificity 競爭問題
+    const tr = "overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%";
+    return `<div class="row-link" data-id="${esc(c.id)}" style="width:100%;max-width:100%;overflow:hidden">
       <div class="avatar" style="background:${bg};color:${fg}">
         ${esc(initial)}${ind ? `<span class="ind">${ind}</span>` : ""}
       </div>
-      <div class="flex-1 min-w-0">
-        <div class="text-[15px] font-semibold truncate leading-tight">${esc(c.name || "（無名）")}</div>
-        <div class="text-[12px] text-gray-400 truncate leading-tight mt-0.5">
-          ${esc([c.title, c.company].filter(Boolean).join(" · ")) || `<span class="empty">未填職位／公司</span>`}
-        </div>
-        <div class="text-[11px] text-gray-500 truncate mt-0.5">${esc(phone || email || fmtDate(c.capturedAt))}</div>
-        ${tagsHtml ? `<div class="mt-1.5 flex gap-1 flex-wrap">${tagsHtml}</div>` : ""}
+      <div style="flex:1 1 0;min-width:0;overflow:hidden">
+        <div class="text-[15px] font-semibold leading-tight" style="${tr}">${esc(c.name || "（無名）")}</div>
+        <div class="text-[12px] text-gray-400 leading-tight mt-0.5" style="${tr}">${esc([c.title, c.company].filter(Boolean).join(" · ")) || `<span class="empty">未填職位／公司</span>`}</div>
+        <div class="text-[11px] text-gray-500 mt-0.5" style="${tr}">${esc(phone || email || fmtDate(c.capturedAt))}</div>
+        ${tagsHtml ? `<div class="mt-1.5 flex gap-1 flex-wrap" style="max-width:100%;overflow:hidden">${tagsHtml}</div>` : ""}
       </div>
-      <span class="chevron" aria-hidden="true">›</span>
+      <span class="chevron" aria-hidden="true" style="flex-shrink:0">›</span>
     </div>`;
   }).join("");
   // 普通 tap 入 detail；長按出 quick-action

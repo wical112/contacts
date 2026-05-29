@@ -5,7 +5,7 @@
    - 其他 static asset（icons / manifest / svg）仍 cache-first
    - skipWaiting + clients.claim 讓新 SW 立即 active
 */
-const VERSION = "v9-2026-05-29-network-first-html";
+const VERSION = "v10-2026-05-29-row-inline-truncate";
 const SHELL = "shell-" + VERSION;
 const URLS = [
   "./", "./index.html", "./manifest.webmanifest", "./icon.svg",
