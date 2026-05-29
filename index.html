@@ -34,11 +34,21 @@
     --text-dim:      #9ca3af;
     --text-fade:     #6b7280;
   }
+  /* ── Core reset：Tailwind CDN 係 async load、首屏未到位前
+        呢套 native CSS 保住 box-sizing 同 viewport 不溢出 ── */
+  *,*::before,*::after{box-sizing:border-box}
+  html,body{margin:0;padding:0;width:100%;max-width:100%;overflow-x:hidden}
   html,body{background:var(--bg);color:var(--text);-webkit-tap-highlight-color:transparent}
   body{font-family:-apple-system,BlinkMacSystemFont,"PingFang HK","Noto Sans HK",system-ui,sans-serif;
        padding-bottom:env(safe-area-inset-bottom);overscroll-behavior-y:none}
-  /* iOS standalone PWA：黑色透明狀態列、需要把內容下推免被時間列覆蓋 */
+  /* iOS standalone PWA：黑色透明狀態列、要把 header 內容下推避開時間列 */
   header.app-header{padding-top:env(safe-area-inset-top, 0px)}
+  /* Tailwind 未 load 時 max-w-3xl / mx-auto / px-3 嘅 fallback */
+  header.app-header>div,main#main>*{max-width:48rem;margin-left:auto;margin-right:auto}
+  main#main{padding-left:.75rem;padding-right:.75rem}
+  /* Row truncate fallback — 防 Tailwind .truncate 未生效時 row 撐爆視窗 */
+  .row-link>div.flex-1{flex:1 1 0;min-width:0}
+  .row-link>div.flex-1>div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .glass{background:rgba(22,27,34,.78);backdrop-filter:saturate(140%) blur(14px)}
   .card{background:var(--bg-2);border:1px solid var(--bg-3);border-radius:18px}
   .chip{display:inline-flex;align-items:center;gap:.25rem;padding:.2rem .6rem;border-radius:999px;
