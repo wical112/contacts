@@ -1,5 +1,38 @@
 # Update log
 
+## 2026-05-29 · v2 PR#2 — UI/UX 全面 refresh（UU 主導）
+
+**改動範圍**：整個視覺與交互語言由 GitHub-blue dark minimal 升級到接近 iOS Contacts.app 質感。
+
+| 範疇 | 改動 |
+|---|---|
+| **設計 tokens** | 引入 `:root` CSS 變量：`--accent: #0a84ff`（iOS system blue）+ bg / border / text 全套；`.card` border-radius 14 → 18；`.modal-sheet` 18 → 24；`.field` focus 用新 accent + soft shadow |
+| **Header 摺疊** | 三個 icon 按鈕（🔍 / 🏷️ / ⋯）+ 標題；搜尋輸入由預設可見 → 撳 🔍 slide-down 展開、auto focus；狀態存 sessionStorage；收起時自動清 query |
+| **FAB speed-dial** | 由「上下兩個 button」變單個 60×60 圓 `＋` FAB；撳開展兩個 sub（📷 影名片／➕ 手動加）；撳屏幕其他位即收合；旋轉 45° 表示 expanded |
+| **左手模式** | 設定入面 toggle、寫 localStorage；FAB 位置由 right-18 → left-18 對換 |
+| **Contact 列表** | 「睇」按鈕換成 `›` chevron；avatar bg 用 `hashColor(name)` 決定性 HSL（每人獨特色）；avatar 角落小 badge = industry emoji（⚖️ 法律／💻 科技／💰 金融 等 15 個 mapping）；padding `p-3` → `p-3.5` |
+| **Tag bar 分組** | 按 namespace 拆組（行業／地區／職位／渠道／自由）+ 每組 group label + 每組獨立顏色（藍／綠／紫／橙／灰）；chip 加 `scroll-snap-align: start` 補返 snap |
+| **長按 quick-action** | 列表 row 長按 500ms → 震動 + floating menu（📞 打／✉️ Email／📥 加入手機通訊錄／👁️ 睇詳情）；touchmove 即取消、唔同 scroll 衝突；desktop `contextmenu` 都 cover |
+| **Modal sticky 修** | 編輯／詳情 modal 頂部 bar 由 inline `sticky top-0` + 重複 bg 改成統一 `.modal-bar` class（border-bottom + sticky 對 modal-sheet 個 scroll context）；冇再雙影 |
+| **編輯 quick-jump** | 左側豎條 6 個 anchor（A／📞／✉／📍／📝／🏷）撳即 smooth scroll 到 section；長 form 易迷失問題解決 |
+| **空 state 重畫** | inline SVG 線稿名片插圖 + 大型「📷 影第一張」primary button（直接 trigger camera input） |
+| **詳情 modal 頭** | 加埋小 avatar + industry badge、提升身份識別 |
+
+**SW VERSION bump** `v3` → `v4-2026-05-29-ui-refresh`，確保用戶拎到新 client code。
+
+**Verify**：
+- iPhone Safari 開 → 應見新 accent blue / 大圓角 / 摺起頭部
+- 撳 🔍 → search input slide-down、auto focus；再撳 → 收起並清 query
+- 撳 `＋` FAB → 兩個 sub 彈出、旋轉變 ×
+- list row 長按 → 震動 + quick-menu
+- 撳 📞 → 直接 dial、撳 ✉️ → mailto、撳 📥 → 落 vcf
+- 編輯 modal scroll 落底 → header 仍 visible、唔再重影
+- 設定 → toggle 左手模式 → FAB 跳左下角
+
+**未做**（押後）：splash images per device class、virtual scroll（1000+ contacts 先需要）。
+
+---
+
 ## 2026-05-29 · v2 PR#1 — iOS PWA 完整化 + 搜索強化
 
 **主公 brief**：upload 一批真實卡片後提出三方向優化：搜索順手啲、數據自動補 tag、UU 整個 UI/UX refresh、打包做 iOS 主畫面 app。Plan 拆做 3 個 PR：

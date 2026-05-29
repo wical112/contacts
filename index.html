@@ -22,67 +22,152 @@
 <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
 <style>
-  html,body{background:#0e1117;color:#e5e7eb;-webkit-tap-highlight-color:transparent}
+  :root {
+    --accent:        #0a84ff;       /* iOS system blue */
+    --accent-dim:    #0066d4;
+    --accent-soft:   rgba(10,132,255,.18);
+    --bg:            #0e1117;
+    --bg-2:          #161b22;
+    --bg-3:          #21262d;
+    --border:        #30363d;
+    --text:          #e5e7eb;
+    --text-dim:      #9ca3af;
+    --text-fade:     #6b7280;
+  }
+  html,body{background:var(--bg);color:var(--text);-webkit-tap-highlight-color:transparent}
   body{font-family:-apple-system,BlinkMacSystemFont,"PingFang HK","Noto Sans HK",system-ui,sans-serif;
-       padding-bottom:env(safe-area-inset-bottom)}
+       padding-bottom:env(safe-area-inset-bottom);overscroll-behavior-y:none}
   .glass{background:rgba(22,27,34,.78);backdrop-filter:saturate(140%) blur(14px)}
-  .card{background:#161b22;border:1px solid #21262d;border-radius:14px}
-  .chip{display:inline-flex;align-items:center;gap:.25rem;padding:.15rem .55rem;border-radius:999px;
-        font-size:.72rem;background:#21262d;color:#9ca3af;border:1px solid #30363d}
-  .chip-on{background:#1f3a5f;color:#93c5fd;border-color:#1d4ed8}
+  .card{background:var(--bg-2);border:1px solid var(--bg-3);border-radius:18px}
+  .chip{display:inline-flex;align-items:center;gap:.25rem;padding:.2rem .6rem;border-radius:999px;
+        font-size:.72rem;background:var(--bg-3);color:var(--text-dim);border:1px solid var(--border);
+        scroll-snap-align:start;flex-shrink:0;white-space:nowrap}
+  .chip-on{background:var(--accent-soft);color:#93c5fd;border-color:var(--accent)}
+  .chip-industry{background:rgba(59,130,246,.15);color:#93c5fd;border-color:rgba(59,130,246,.4)}
+  .chip-region{background:rgba(34,197,94,.15);color:#86efac;border-color:rgba(34,197,94,.4)}
+  .chip-seniority{background:rgba(168,85,247,.15);color:#d8b4fe;border-color:rgba(168,85,247,.4)}
+  .chip-channel{background:rgba(249,115,22,.15);color:#fdba74;border-color:rgba(249,115,22,.4)}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;
        padding:.6rem .9rem;border-radius:12px;font-weight:600;font-size:.92rem;
-       transition:transform .08s ease, background .15s ease}
+       transition:transform .08s ease, background .15s ease, opacity .15s ease;
+       -webkit-user-select:none;user-select:none}
   .btn:active{transform:scale(.96)}
-  .btn-primary{background:#2563eb;color:#fff}
-  .btn-primary:hover{background:#1d4ed8}
-  .btn-ghost{background:#21262d;color:#e5e7eb}
-  .btn-ghost:hover{background:#30363d}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{background:var(--accent-dim)}
+  .btn-ghost{background:var(--bg-3);color:var(--text)}
+  .btn-ghost:hover{background:var(--border)}
   .btn-danger{background:#7f1d1d;color:#fecaca}
-  .field{width:100%;padding:.55rem .7rem;background:#0d1117;border:1px solid #30363d;
-         border-radius:10px;color:#e5e7eb;font-size:.95rem}
-  .field:focus{outline:none;border-color:#3b82f6;box-shadow:0 0 0 3px rgba(59,130,246,.18)}
-  .label{font-size:.72rem;color:#9ca3af;text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem}
+  .icon-btn{width:40px;height:40px;padding:0;border-radius:12px;background:var(--bg-3);color:var(--text);
+            display:inline-flex;align-items:center;justify-content:center;font-size:1rem;flex-shrink:0;
+            transition:transform .08s ease, background .15s ease}
+  .icon-btn:active{transform:scale(.92)}
+  .icon-btn.on{background:var(--accent-soft);color:#93c5fd}
+  .field{width:100%;padding:.6rem .75rem;background:#0d1117;border:1px solid var(--border);
+         border-radius:12px;color:var(--text);font-size:.95rem}
+  .field:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  .label{font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.2rem}
   details>summary{list-style:none;cursor:pointer}
   details>summary::-webkit-details-marker{display:none}
   .modal-shell{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-end;justify-content:center;
                background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
-  .modal-sheet{width:100%;max-width:680px;max-height:92vh;overflow:auto;background:#0e1117;
-               border-top:1px solid #30363d;border-radius:18px 18px 0 0;padding:1rem 1rem 2rem;
-               animation:slideUp .22s ease}
+  .modal-sheet{width:100%;max-width:680px;max-height:92vh;overflow:auto;background:var(--bg);
+               border-top:1px solid var(--border);border-radius:24px 24px 0 0;padding:0 1rem 2rem;
+               animation:slideUp .22s ease;position:relative}
+  .modal-bar{position:sticky;top:0;background:var(--bg);padding:.75rem 0 .6rem;z-index:5;
+             display:flex;align-items:center;gap:.5rem;border-bottom:1px solid var(--bg-3);margin-bottom:.75rem}
   @keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:none;opacity:1}}
   @media(min-width:768px){
     .modal-shell{align-items:center}
-    .modal-sheet{border-radius:18px;border:1px solid #30363d}
+    .modal-sheet{border-radius:24px;border:1px solid var(--border)}
   }
-  .spinner{width:18px;height:18px;border:2px solid #3b82f6;border-top-color:transparent;border-radius:50%;
+  .spinner{width:18px;height:18px;border:2px solid var(--accent);border-top-color:transparent;border-radius:50%;
            animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
   .scroll-x{overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch}
   .scroll-x::-webkit-scrollbar{display:none}
-  .empty{color:#6b7280;font-style:italic;font-size:.85rem}
-  a.link{color:#93c5fd;text-decoration:underline;text-decoration-color:#1d4ed8}
+  .empty{color:var(--text-fade);font-style:italic;font-size:.85rem}
+  a.link{color:#93c5fd;text-decoration:underline;text-decoration-color:rgba(10,132,255,.5)}
   .toast{position:fixed;left:50%;top:1rem;transform:translateX(-50%);z-index:60;
-         background:#1f2937;color:#e5e7eb;border:1px solid #374151;padding:.55rem .9rem;border-radius:12px;
-         font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;transition:opacity .2s}
+         background:#1f2937;color:var(--text);border:1px solid #374151;padding:.55rem .9rem;border-radius:12px;
+         font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.4);opacity:0;transition:opacity .2s;
+         max-width:90vw;text-align:center}
   .toast.on{opacity:1}
+
+  /* Search expand animation */
+  #qWrap{max-height:0;overflow:hidden;opacity:0;transition:max-height .25s ease, opacity .15s ease}
+  #qWrap.open{max-height:60px;opacity:1;padding-bottom:.5rem}
+
+  /* List contact row */
+  .row-link{display:flex;align-items:center;gap:.75rem;padding:.85rem .9rem;
+            background:var(--bg-2);border:1px solid var(--bg-3);border-radius:18px;
+            transition:transform .08s ease, background .15s ease;cursor:pointer;-webkit-user-select:none;user-select:none}
+  .row-link:active{transform:scale(.985);background:#1a1f26}
+  .row-link .chevron{color:var(--text-fade);font-size:1.2rem;margin-left:auto;flex-shrink:0}
+
+  /* Avatar — hashColor bg + emoji industry badge */
+  .avatar{width:44px;height:44px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+          font-weight:700;font-size:1.05rem;flex-shrink:0;position:relative;line-height:1}
+  .avatar .ind{position:absolute;right:-2px;bottom:-2px;width:18px;height:18px;border-radius:50%;
+               background:var(--bg);border:1.5px solid var(--bg-2);display:flex;align-items:center;
+               justify-content:center;font-size:.6rem}
+
+  /* FAB speed-dial */
+  #fab{position:fixed;bottom:calc(env(safe-area-inset-bottom) + 18px);right:18px;z-index:40;
+       display:flex;flex-direction:column;align-items:flex-end;gap:.6rem}
+  #fab.left{right:auto;left:18px;align-items:flex-start}
+  .fab-main{width:60px;height:60px;border-radius:50%;background:var(--accent);color:#fff;
+            font-size:1.6rem;display:flex;align-items:center;justify-content:center;
+            box-shadow:0 12px 28px rgba(10,132,255,.4), 0 4px 10px rgba(0,0,0,.3);
+            transition:transform .15s ease;-webkit-user-select:none;user-select:none}
+  .fab-main:active{transform:scale(.94)}
+  .fab-main.expanded{transform:rotate(45deg)}
+  .fab-sub{height:42px;padding:0 .9rem .05rem 1rem;border-radius:21px;background:var(--bg-2);
+           border:1px solid var(--bg-3);color:var(--text);display:none;align-items:center;gap:.4rem;
+           box-shadow:0 6px 16px rgba(0,0,0,.35);font-size:.88rem;font-weight:500;
+           opacity:0;transform:translateY(8px);transition:transform .2s ease, opacity .2s ease}
+  #fab.open .fab-sub{display:inline-flex;opacity:1;transform:none}
+  #fab.open .fab-sub:nth-child(1){transition-delay:.05s}
+  #fab.open .fab-sub:nth-child(2){transition-delay:.1s}
+
+  /* Quick-action menu (long-press) */
+  .quick-menu{position:fixed;z-index:55;background:var(--bg-2);border:1px solid var(--bg-3);
+              border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.5);padding:.4rem;min-width:160px;
+              animation:popIn .15s ease}
+  @keyframes popIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+  .quick-menu button{display:flex;align-items:center;gap:.6rem;width:100%;padding:.6rem .8rem;
+                     background:transparent;color:var(--text);border-radius:8px;font-size:.92rem;text-align:left}
+  .quick-menu button:hover,.quick-menu button:active{background:var(--bg-3)}
+
+  /* Tag bar group label */
+  .tg-label{font-size:.66rem;color:var(--text-fade);text-transform:uppercase;letter-spacing:.08em;
+            padding:0 .3rem;display:inline-flex;align-items:center;align-self:center;flex-shrink:0}
+
+  /* Empty state */
+  .empty-illu{width:120px;height:120px;margin:0 auto 1rem;color:var(--bg-3)}
+
+  /* Section quick-jump rail (editor) */
+  .qjump{position:absolute;left:4px;top:60px;display:flex;flex-direction:column;gap:.3rem;z-index:6}
+  .qjump button{width:30px;height:30px;border-radius:50%;background:var(--bg-3);color:var(--text-dim);
+                font-size:.7rem;font-weight:600}
+  .qjump button.on{background:var(--accent-soft);color:#93c5fd}
 </style>
 </head>
 <body class="min-h-screen">
 
 <!-- ====== HEADER ====== -->
 <header class="glass sticky top-0 z-30 border-b border-[#21262d]">
-  <div class="max-w-3xl mx-auto px-3 py-2.5 flex items-center gap-2">
+  <div class="max-w-3xl mx-auto px-3 py-2 flex items-center gap-1.5">
     <div class="text-lg">📇</div>
     <div class="flex-1 min-w-0">
-      <div class="text-sm font-semibold leading-tight">聯絡簿</div>
+      <div class="text-[15px] font-semibold leading-tight">聯絡簿</div>
       <div class="text-[11px] text-gray-500 leading-tight" id="status">未登入</div>
     </div>
-    <button class="btn btn-ghost text-sm py-1.5 px-2.5" id="btnTags" title="篩 tag">🏷️</button>
-    <button class="btn btn-ghost text-sm py-1.5 px-2.5" id="btnMenu" title="設定">⋯</button>
+    <button class="icon-btn" id="btnSearch" title="搵人" aria-label="搵人">🔍</button>
+    <button class="icon-btn" id="btnTags" title="篩 tag" aria-label="篩 tag">🏷️</button>
+    <button class="icon-btn" id="btnMenu" title="設定" aria-label="設定">⋯</button>
   </div>
-  <div class="max-w-3xl mx-auto px-3 pb-2">
-    <input id="q" class="field" placeholder="搵：姓名／公司／電話／email／tag…" autocomplete="off">
+  <div id="qWrap" class="max-w-3xl mx-auto px-3">
+    <input id="q" class="field" placeholder="搵：姓名／公司／電話／email／tag…" autocomplete="off" enterkeyhint="search">
   </div>
 </header>
 
@@ -102,22 +187,30 @@
 
 <!-- ====== MAIN ====== -->
 <main id="main" class="hidden max-w-3xl mx-auto px-3 pt-3 pb-32">
-  <div id="tagBar" class="scroll-x flex gap-1.5 pb-2 hidden"></div>
-  <div id="list" class="grid gap-2"></div>
-  <div id="emptyState" class="hidden card p-8 text-center mt-4">
-    <div class="text-4xl mb-2">📇</div>
-    <div class="font-semibold mb-1">仲未有聯絡人</div>
-    <div class="text-sm text-gray-400">㩒底下個相機掣影張卡片試下。</div>
+  <div id="tagBar" class="scroll-x flex gap-1.5 pb-2 hidden items-center"></div>
+  <div id="list" class="grid gap-2.5"></div>
+  <div id="emptyState" class="hidden text-center mt-10">
+    <svg class="empty-illu" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="1.5">
+      <rect x="14" y="28" width="72" height="48" rx="8"/>
+      <circle cx="32" cy="48" r="6"/>
+      <path d="M48 44h28M48 50h22M22 64h56"/>
+      <path d="M70 18l8 8M78 18l-8 8" stroke="var(--accent)" stroke-width="2"/>
+    </svg>
+    <div class="text-base font-semibold mb-1">仲未有聯絡人</div>
+    <div class="text-sm text-gray-400 mb-5">影一張卡片開始整理你嘅人脈。</div>
+    <label class="btn btn-primary text-base px-6 py-3 cursor-pointer inline-flex">
+      📷 影第一張
+      <input id="camEmpty" type="file" accept="image/*" capture="environment" class="hidden">
+    </label>
   </div>
 </main>
 
-<!-- ====== FAB ====== -->
-<div id="fab" class="hidden fixed bottom-4 right-4 z-40 flex flex-col gap-2 items-end">
-  <button class="btn btn-ghost shadow-lg" id="btnAddManual">➕ 手動加</button>
-  <label class="btn btn-primary shadow-xl text-base px-5 py-3 cursor-pointer">
-    📷 影名片
-    <input id="cam" type="file" accept="image/*" capture="environment" class="hidden">
-  </label>
+<!-- ====== FAB (speed-dial) ====== -->
+<div id="fab" class="hidden">
+  <button class="fab-sub" id="btnAddManual" type="button">➕ 手動加</button>
+  <label class="fab-sub" id="btnCamPick" for="cam">📷 影名片</label>
+  <button class="fab-main" id="fabMain" type="button" aria-label="加聯絡人">＋</button>
+  <input id="cam" type="file" accept="image/*" capture="environment" class="hidden">
 </div>
 
 <!-- ====== Toast ====== -->
@@ -283,6 +376,57 @@ function allTags() {
   for (const c of S.contacts) (c.tags||[]).forEach(t => m.set(t, (m.get(t)||0) + 1));
   return Array.from(m.entries()).sort((a,b) => b[1] - a[1]);
 }
+// 按 namespace prefix 分組（industry/* / region/* / seniority/* / channel/* / 自由）
+const TAG_GROUPS = [
+  { ns: "industry",  label: "行業", cls: "chip-industry" },
+  { ns: "region",    label: "地區", cls: "chip-region" },
+  { ns: "seniority", label: "職位", cls: "chip-seniority" },
+  { ns: "channel",   label: "渠道", cls: "chip-channel" },
+  { ns: "",          label: "自由", cls: "" }
+];
+function groupTags(entries) {
+  const groups = TAG_GROUPS.map(g => ({ ...g, items: [] }));
+  for (const [t, n] of entries) {
+    const slash = t.indexOf("/");
+    const ns = slash > 0 ? t.slice(0, slash) : "";
+    const grp = groups.find(g => g.ns === ns) || groups[groups.length - 1];
+    grp.items.push([t, n]);
+  }
+  return groups.filter(g => g.items.length);
+}
+// Industry namespace → emoji（avatar 角落小 badge）
+const INDUSTRY_EMOJI = {
+  finance: "💰", legal: "⚖️", tech: "💻", healthcare: "🏥",
+  education: "🎓", manufacturing: "🏭", retail: "🛍️", hospitality: "🏨",
+  media: "📺", government: "🏛️", consulting: "🧠", realestate: "🏢",
+  logistics: "🚚", marketing: "📣", ngo: "🤝"
+};
+function industryEmoji(tags) {
+  for (const t of (tags || [])) {
+    if (t.startsWith("industry/")) {
+      const k = t.slice(9);
+      if (INDUSTRY_EMOJI[k]) return INDUSTRY_EMOJI[k];
+    }
+  }
+  return null;
+}
+// Tag → chip class (for grouped colour)
+function tagClass(t) {
+  for (const g of TAG_GROUPS) if (g.ns && t.startsWith(g.ns + "/")) return g.cls;
+  return "";
+}
+// 顯示 tag 嘅短 label（去 prefix）
+function tagShort(t) {
+  const i = t.indexOf("/");
+  return i > 0 ? t.slice(i + 1) : t;
+}
+// Deterministic hash → HSL color（avatar bg）
+function hashColor(s) {
+  let h = 5381; const str = String(s || "·");
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  const hue = ((h >>> 0) % 360);
+  return { bg: `hsl(${hue} 35% 24%)`, fg: `hsl(${hue} 75% 80%)` };
+}
 function matchTags(c) {
   if (!S.selectedTags.size) return true;
   const t = new Set(c.tags||[]);
@@ -291,19 +435,26 @@ function matchTags(c) {
 }
 function render() {
   if (!S.ready) return;
-  // tag bar
-  const tags = allTags();
+  // ── tag bar：按 namespace 分組、上色、加 group label ──
   const tagBar = $("#tagBar");
-  if (!tags.length) {
+  const entries = allTags();
+  if (!entries.length) {
     tagBar.classList.add("hidden");
+    tagBar.innerHTML = "";
   } else {
     tagBar.classList.remove("hidden");
-    tagBar.innerHTML = tags.map(([t, n]) => {
-      const on = S.selectedTags.has(t);
-      return `<button data-tag="${esc(t)}" class="chip ${on ? "chip-on" : ""}">${esc(t)} <span class="opacity-60">${n}</span></button>`;
-    }).join("");
+    const groups = groupTags(entries);
+    tagBar.innerHTML = groups.map(g => {
+      const items = g.items.map(([t, n]) => {
+        const on = S.selectedTags.has(t);
+        const cls = on ? "chip-on" : g.cls;
+        return `<button data-tag="${esc(t)}" class="chip ${cls}">${esc(tagShort(t))} <span class="opacity-60">${n}</span></button>`;
+      }).join("");
+      const label = g.ns ? `<span class="tg-label">${g.label}</span>` : "";
+      return label + items;
+    }).join('<span class="tg-label opacity-30">·</span>');
   }
-  // list — score-based filter + relevance sort（query 為空時 fall back updatedAt desc）
+  // ── list：score-based filter + relevance sort ──
   const idxById = new Map((S._idx||[]).map(i => [i.id, i]));
   const q = S.query;
   let filtered;
@@ -330,25 +481,28 @@ function render() {
   list.innerHTML = filtered.map(c => {
     const phone = (c.phones||[])[0]?.value || "";
     const email = (c.emails||[])[0]?.value || "";
-    const tags = (c.tags||[]).slice(0,4).map(t => `<span class="chip">${esc(t)}</span>`).join("");
-    return `<div class="card p-3 flex items-center gap-3" data-id="${c.id}">
-      <div class="w-11 h-11 rounded-full bg-[#21262d] flex items-center justify-center text-base font-semibold text-blue-300 shrink-0">
-        ${esc((c.name||"·").slice(0,1))}
+    const visTags = (c.tags||[]).filter(t => !t.startsWith("industry/")).slice(0, 3); // industry 喺 avatar 角顯示
+    const tagsHtml = visTags.map(t => `<span class="chip ${tagClass(t)}">${esc(tagShort(t))}</span>`).join("");
+    const { bg, fg } = hashColor(c.name || c.company || c.id);
+    const ind = industryEmoji(c.tags);
+    const initial = (c.name || c.company || "·").slice(0,1);
+    return `<div class="row-link" data-id="${esc(c.id)}">
+      <div class="avatar" style="background:${bg};color:${fg}">
+        ${esc(initial)}${ind ? `<span class="ind">${ind}</span>` : ""}
       </div>
       <div class="flex-1 min-w-0">
-        <div class="font-semibold truncate">${esc(c.name || "（無名）")}</div>
-        <div class="text-xs text-gray-400 truncate">
-          ${esc([c.title, c.company].filter(Boolean).join(" · "))}
+        <div class="text-[15px] font-semibold truncate leading-tight">${esc(c.name || "（無名）")}</div>
+        <div class="text-[12px] text-gray-400 truncate leading-tight mt-0.5">
+          ${esc([c.title, c.company].filter(Boolean).join(" · ")) || `<span class="empty">未填職位／公司</span>`}
         </div>
-        <div class="text-[11px] text-gray-500 truncate">${esc(phone || email || fmtDate(c.capturedAt))}</div>
-        ${tags ? `<div class="mt-1 flex gap-1 flex-wrap">${tags}</div>` : ""}
+        <div class="text-[11px] text-gray-500 truncate mt-0.5">${esc(phone || email || fmtDate(c.capturedAt))}</div>
+        ${tagsHtml ? `<div class="mt-1.5 flex gap-1 flex-wrap">${tagsHtml}</div>` : ""}
       </div>
-      <button class="btn btn-ghost text-xs py-1 px-2" data-act="open">睇</button>
+      <span class="chevron" aria-hidden="true">›</span>
     </div>`;
   }).join("");
-  list.querySelectorAll("[data-id]").forEach(el => {
-    el.addEventListener("click", () => openDetail(el.dataset.id));
-  });
+  // 普通 tap 入 detail；長按出 quick-action
+  list.querySelectorAll(".row-link").forEach(el => attachRowGesture(el));
   tagBar.querySelectorAll("[data-tag]").forEach(el => {
     el.addEventListener("click", () => {
       const t = el.dataset.tag;
@@ -358,7 +512,63 @@ function render() {
   });
 }
 
-/* ---------- Search / tag bar ---------- */
+/* ---------- Long-press quick action（call / email / vcard） ---------- */
+function attachRowGesture(el) {
+  const id = el.dataset.id;
+  let pressTimer = 0;
+  let moved = false;
+  let suppress = false;
+  const onStart = (x, y) => {
+    moved = false; suppress = false;
+    pressTimer = setTimeout(() => {
+      if (moved) return;
+      suppress = true;
+      try { navigator.vibrate && navigator.vibrate(15); } catch {}
+      openQuickAction(id, x, y);
+    }, 500);
+  };
+  const cancel = () => { clearTimeout(pressTimer); pressTimer = 0; };
+  el.addEventListener("touchstart", e => onStart(e.touches[0].clientX, e.touches[0].clientY), { passive: true });
+  el.addEventListener("touchmove", () => { moved = true; cancel(); }, { passive: true });
+  el.addEventListener("touchend", cancel);
+  el.addEventListener("touchcancel", cancel);
+  el.addEventListener("contextmenu", e => { e.preventDefault(); openQuickAction(id, e.clientX, e.clientY); suppress = true; });
+  el.addEventListener("click", e => {
+    if (suppress) { e.stopPropagation(); return; }
+    openDetail(id);
+  });
+}
+function openQuickAction(id, x, y) {
+  closeQuickAction();
+  const c = S.contacts.find(x => x.id === id);
+  if (!c) return;
+  const phone = (c.phones||[])[0]?.value;
+  const email = (c.emails||[])[0]?.value;
+  const menu = document.createElement("div");
+  menu.className = "quick-menu";
+  menu.id = "quickMenu";
+  const items = [];
+  if (phone) items.push(`<button data-act="call"><span>📞</span> 打 ${esc(phone)}</button>`);
+  if (email) items.push(`<button data-act="email"><span>✉️</span> Email ${esc(email)}</button>`);
+  items.push(`<button data-act="vcard"><span>📥</span> 加入手機通訊錄</button>`);
+  items.push(`<button data-act="open"><span>👁️</span> 睇詳情</button>`);
+  menu.innerHTML = items.join("");
+  document.body.appendChild(menu);
+  // position：避免出界
+  const w = 200, h = menu.offsetHeight || 180;
+  const left = Math.min(x, window.innerWidth - w - 12);
+  const top  = Math.min(y, window.innerHeight - h - 12);
+  menu.style.left = left + "px";
+  menu.style.top  = top  + "px";
+  menu.querySelector('[data-act="call"]')?.addEventListener("click", () => { closeQuickAction(); location.href = "tel:" + phone; });
+  menu.querySelector('[data-act="email"]')?.addEventListener("click", () => { closeQuickAction(); location.href = "mailto:" + email; });
+  menu.querySelector('[data-act="vcard"]')?.addEventListener("click", () => { closeQuickAction(); downloadVcf(c); });
+  menu.querySelector('[data-act="open"]')?.addEventListener("click", () => { closeQuickAction(); openDetail(id); });
+  setTimeout(() => document.addEventListener("click", closeQuickAction, { once: true }), 50);
+}
+function closeQuickAction() { document.getElementById("quickMenu")?.remove(); }
+
+/* ---------- Header: 搜尋 expand + tag bar toggle ---------- */
 // debounce 120ms — 避免每 keystroke 重 render 100+ cards
 let _qDebounce = 0;
 $("#q").addEventListener("input", e => {
@@ -366,22 +576,31 @@ $("#q").addEventListener("input", e => {
   clearTimeout(_qDebounce);
   _qDebounce = setTimeout(() => { S.query = v; render(); }, 120);
 });
+// Search expand：撳放大鏡 → input slide-down，自動 focus；再撳收返
+function toggleSearch(forceState) {
+  const wrap = $("#qWrap");
+  const btn = $("#btnSearch");
+  const open = forceState != null ? forceState : !wrap.classList.contains("open");
+  wrap.classList.toggle("open", open);
+  btn.classList.toggle("on", open);
+  sessionStorage.setItem("q_open", open ? "1" : "");
+  if (open) setTimeout(() => $("#q").focus(), 100);
+  else { $("#q").value = ""; if (S.query) { S.query = ""; render(); } }
+}
+$("#btnSearch").addEventListener("click", () => toggleSearch());
+// 預設根據 session 狀態 restore
+if (sessionStorage.getItem("q_open")) toggleSearch(true);
 $("#btnTags").addEventListener("click", () => {
   const tb = $("#tagBar");
-  if (tb.classList.contains("hidden")) {
-    // no tags yet → toast
-    if (!allTags().length) return toast("仲未有 tag — 喺聯絡人入面加");
-    tb.classList.remove("hidden");
-  } else {
-    if (S.selectedTags.size) { S.selectedTags.clear(); render(); }
-    else tb.classList.add("hidden");
-  }
+  const empty = !allTags().length;
+  if (empty) return toast("仲未有 tag — 影名片時 AI 會自動派；或者喺聯絡人入面手動加");
+  // 唔再 hide：tag bar 永遠顯示，撳掣係 reset selected
+  if (S.selectedTags.size) { S.selectedTags.clear(); render(); toast("已清 tag filter"); }
+  else { tb.scrollIntoView({ behavior: "smooth", block: "nearest" }); $("#btnTags").classList.add("on"); setTimeout(() => $("#btnTags").classList.remove("on"), 600); }
 });
 
 /* ---------- Camera & OCR ---------- */
-$("#cam").addEventListener("change", async e => {
-  const f = e.target.files?.[0];
-  e.target.value = ""; // allow re-select same file
+async function handleCamFile(f) {
   if (!f) return;
   try {
     const { base64, dataUrl } = await prepImage(f);
@@ -391,6 +610,12 @@ $("#cam").addEventListener("change", async e => {
     console.error(err);
     toast("OCR 失敗：" + (err.message || err));
   }
+}
+$("#cam").addEventListener("change", async e => {
+  const f = e.target.files?.[0]; e.target.value = ""; await handleCamFile(f);
+});
+$("#camEmpty")?.addEventListener("change", async e => {
+  const f = e.target.files?.[0]; e.target.value = ""; await handleCamFile(f);
 });
 
 async function prepImage(file) {
@@ -477,31 +702,41 @@ function openEditor(draft, existingId=null) {
   const shell = document.createElement("div");
   shell.className = "modal-shell";
   shell.innerHTML = `<div class="modal-sheet">
-    <div class="flex items-center gap-2 mb-3 sticky top-0 -mt-1 pt-1 bg-[#0e1117]">
+    <div class="modal-bar">
       <div class="text-base font-semibold flex-1">${existingId ? "編輯" : "新增聯絡人"}</div>
-      <button class="btn btn-ghost text-sm py-1.5 px-2.5" data-act="close">✕</button>
+      <button class="icon-btn" data-act="close" aria-label="關閉">✕</button>
     </div>
-    ${photoPreview ? `<img src="${photoPreview}" class="w-full max-h-56 object-contain rounded-lg mb-3 bg-black/40">` : ""}
-    <div class="grid gap-2.5">
-      <div><div class="label">姓名</div><input class="field" data-f="name" value="${esc(data.name)}"></div>
-      <div class="grid grid-cols-2 gap-2">
-        <div><div class="label">職位</div><input class="field" data-f="title" value="${esc(data.title)}"></div>
-        <div><div class="label">公司</div><input class="field" data-f="company" value="${esc(data.company)}"></div>
-      </div>
-      <div data-list="phones"><div class="label">電話</div></div>
-      <div data-list="emails"><div class="label">Email</div></div>
-      <div data-list="websites" data-simple="1"><div class="label">網址</div></div>
-      <div data-list="addresses" data-simple="1"><div class="label">地址</div></div>
-      <div><div class="label">備註</div><textarea class="field" rows="2" data-f="notes">${esc(data.notes)}</textarea></div>
-      <div>
-        <div class="label">Tag（用空格分隔）</div>
-        <input class="field" data-f="tags" value="${esc(data.tags.join(' '))}" placeholder="e.g. 展會2026 客戶 supplier">
-      </div>
+    <div class="qjump">
+      <button data-jump="basic" title="基本">A</button>
+      <button data-jump="phones" title="電話">📞</button>
+      <button data-jump="emails" title="Email">✉</button>
+      <button data-jump="addresses" title="地址">📍</button>
+      <button data-jump="notes" title="備註">📝</button>
+      <button data-jump="tags" title="Tag">🏷</button>
     </div>
-    <div class="flex gap-2 mt-4">
-      <button class="btn btn-ghost flex-1" data-act="close">取消</button>
-      ${existingId ? `<button class="btn btn-danger" data-act="delete">🗑️ 刪</button>` : ""}
-      <button class="btn btn-primary flex-1" data-act="save">💾 儲存</button>
+    <div class="pl-10">
+      ${photoPreview ? `<img src="${photoPreview}" class="w-full max-h-56 object-contain rounded-lg mb-3 bg-black/40">` : ""}
+      <div class="grid gap-2.5">
+        <div data-sec="basic"><div class="label">姓名</div><input class="field" data-f="name" value="${esc(data.name)}"></div>
+        <div class="grid grid-cols-2 gap-2">
+          <div><div class="label">職位</div><input class="field" data-f="title" value="${esc(data.title)}"></div>
+          <div><div class="label">公司</div><input class="field" data-f="company" value="${esc(data.company)}"></div>
+        </div>
+        <div data-sec="phones" data-list="phones"><div class="label">電話</div></div>
+        <div data-sec="emails" data-list="emails"><div class="label">Email</div></div>
+        <div data-list="websites" data-simple="1"><div class="label">網址</div></div>
+        <div data-sec="addresses" data-list="addresses" data-simple="1"><div class="label">地址</div></div>
+        <div data-sec="notes"><div class="label">備註</div><textarea class="field" rows="2" data-f="notes">${esc(data.notes)}</textarea></div>
+        <div data-sec="tags">
+          <div class="label">Tag（用空格分隔，AI 派嘅 industry/region 等自動 prefix）</div>
+          <input class="field" data-f="tags" value="${esc(data.tags.join(' '))}" placeholder="e.g. 展會2026 客戶 supplier">
+        </div>
+      </div>
+      <div class="flex gap-2 mt-4">
+        <button class="btn btn-ghost flex-1" data-act="close">取消</button>
+        ${existingId ? `<button class="btn btn-danger" data-act="delete">🗑️ 刪</button>` : ""}
+        <button class="btn btn-primary flex-1" data-act="save">💾 儲存</button>
+      </div>
     </div>
   </div>`;
   root.appendChild(shell);
@@ -551,6 +786,14 @@ function openEditor(draft, existingId=null) {
   renderListField("emails");
   renderListField("websites", true);
   renderListField("addresses", true);
+
+  // section quick-jump
+  shell.querySelectorAll(".qjump [data-jump]").forEach(b => {
+    b.addEventListener("click", () => {
+      const sec = shell.querySelector(`[data-sec="${b.dataset.jump}"]`);
+      sec?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  });
 
   shell.querySelector('[data-act="close"]').addEventListener("click", () => shell.remove());
   shell.addEventListener("click", e => { if (e.target === shell) shell.remove(); });
@@ -638,12 +881,17 @@ function openDetail(id) {
     <button class="btn btn-ghost text-xs py-0.5 px-2 ml-auto" data-copy="${esc(p.value)}">複製</button></div>`).join("");
   const sites = (c.websites||[]).map(w => `<a class="link block truncate" href="${esc(/^https?:/.test(w)?w:'https://'+w)}" target="_blank" rel="noopener">${esc(w)}</a>`).join("");
   const addrs = (c.addresses||[]).map(a => `<div class="text-sm">📍 <a class="link" target="_blank" rel="noopener" href="https://maps.google.com/?q=${encodeURIComponent(a)}">${esc(a)}</a></div>`).join("");
-  const tagsHtml = (c.tags||[]).map(t => `<span class="chip">${esc(t)}</span>`).join(" ");
+  const tagsHtml = (c.tags||[]).map(t => `<span class="chip ${tagClass(t)}">${esc(tagShort(t))}</span>`).join(" ");
+  const ind = industryEmoji(c.tags);
+  const { bg, fg } = hashColor(c.name || c.company || c.id);
   shell.innerHTML = `<div class="modal-sheet">
-    <div class="flex items-center gap-2 mb-3 sticky top-0 -mt-1 pt-1 bg-[#0e1117]">
+    <div class="modal-bar">
+      <div class="avatar" style="background:${bg};color:${fg};width:36px;height:36px;font-size:.9rem">
+        ${esc((c.name||c.company||"·").slice(0,1))}${ind ? `<span class="ind">${ind}</span>` : ""}
+      </div>
       <div class="text-base font-semibold flex-1 truncate">${esc(c.name || "（無名）")}</div>
-      <button class="btn btn-ghost text-sm py-1.5 px-2.5" data-act="edit">✏️ 編輯</button>
-      <button class="btn btn-ghost text-sm py-1.5 px-2.5" data-act="close">✕</button>
+      <button class="icon-btn" data-act="edit" aria-label="編輯">✏️</button>
+      <button class="icon-btn" data-act="close" aria-label="關閉">✕</button>
     </div>
     ${c.photoUrl ? `<img src="${esc(c.photoUrl)}" class="w-full max-h-56 object-contain rounded-lg mb-3 bg-black/40">` : ""}
     <div class="grid gap-2.5">
@@ -718,11 +966,20 @@ function openMenu() {
   const root = $("#modalRoot");
   const shell = document.createElement("div");
   shell.className = "modal-shell";
+  const leftHand = localStorage.getItem("fab_left") === "1";
   shell.innerHTML = `<div class="modal-sheet" style="max-width:480px">
-    <div class="flex items-center gap-2 mb-3"><div class="font-semibold flex-1">設定</div>
-      <button class="btn btn-ghost text-sm py-1.5 px-2.5" data-act="close">✕</button></div>
+    <div class="modal-bar"><div class="font-semibold flex-1">設定</div>
+      <button class="icon-btn" data-act="close" aria-label="關閉">✕</button></div>
     <div class="text-xs text-gray-400 mb-3">登入：${esc(S.user?.email||"")}</div>
     <div class="grid gap-2">
+      <label class="row-link" style="padding:.7rem .9rem;cursor:pointer">
+        <span class="text-lg">👈</span>
+        <div class="flex-1">
+          <div class="text-sm font-medium">左手模式</div>
+          <div class="text-[11px] text-gray-500">把加掣移去左下角</div>
+        </div>
+        <input type="checkbox" id="optLeftHand" ${leftHand ? "checked" : ""}>
+      </label>
       <button class="btn btn-ghost" data-act="export-json">📥 匯出全部 JSON</button>
       <button class="btn btn-ghost" data-act="export-vcf">📥 匯出全部 vCard (.vcf)</button>
       <button class="btn btn-ghost" data-act="signout">🚪 登出</button>
@@ -735,6 +992,10 @@ function openMenu() {
   shell.querySelector('[data-act="close"]').addEventListener("click", () => shell.remove());
   shell.addEventListener("click", e => { if (e.target === shell) shell.remove(); });
   shell.querySelector('[data-act="signout"]').addEventListener("click", async () => { await auth.signOut(); shell.remove(); });
+  shell.querySelector('#optLeftHand').addEventListener("change", e => {
+    localStorage.setItem("fab_left", e.target.checked ? "1" : "");
+    applyHandedness();
+  });
   shell.querySelector('[data-act="export-json"]').addEventListener("click", () => {
     const out = S.contacts.map(c => { const x = {...c}; delete x.id; return x; });
     const blob = new Blob([JSON.stringify(out, null, 2)], { type:"application/json" });
@@ -788,7 +1049,34 @@ function openMenu() {
   });
 }
 
-$("#btnAddManual").addEventListener("click", () => openEditor({}));
+$("#btnAddManual").addEventListener("click", () => { closeFab(); openEditor({}); });
+// btnCamPick 係 <label for="cam">、自動 trigger file picker；只需收合 FAB
+$("#btnCamPick").addEventListener("click", () => closeFab());
+
+/* ---------- FAB speed-dial ---------- */
+function openFab() {
+  $("#fab").classList.add("open");
+  $("#fabMain").classList.add("expanded");
+}
+function closeFab() {
+  $("#fab").classList.remove("open");
+  $("#fabMain").classList.remove("expanded");
+}
+$("#fabMain").addEventListener("click", e => {
+  e.stopPropagation();
+  if ($("#fab").classList.contains("open")) closeFab(); else openFab();
+});
+// 撳屏幕其他地方即收合
+document.addEventListener("click", e => {
+  if (!$("#fab").classList.contains("open")) return;
+  if (!e.target.closest("#fab")) closeFab();
+});
+// 左手模式（settings 入面 toggle、寫 localStorage）
+function applyHandedness() {
+  const left = localStorage.getItem("fab_left") === "1";
+  $("#fab").classList.toggle("left", left);
+}
+applyHandedness();
 
 /* ---------- PWA service worker ---------- */
 if ("serviceWorker" in navigator) {
